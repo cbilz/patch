@@ -1,0 +1,62 @@
+From 3b77f1ed7e69e8347e41c2f93dfdfc22f5ac07dd Mon Sep 17 00:00:00 2001
+From: Andrew Kelley <andrew@ziglang.org>
+Date: Wed, 29 May 2024 10:20:15 -0700
+Subject: [PATCH 09/14] rename zig-cache to .zig-cache
+
+closes #20077
+---
+ lib/std/fs/test.zig | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/test.zig b/test.zig
+index 63e7968c6..bd2f4e844 100644
+--- a/test.zig
++++ b/test.zig
+@@ -325,7 +325,7 @@ test "accessAbsolute" {
+     const allocator = arena.allocator();
+ 
+     const base_path = blk: {
+-        const relative_path = try fs.path.join(allocator, &.{ "zig-cache", "tmp", tmp.sub_path[0..] });
++        const relative_path = try fs.path.join(allocator, &.{ ".zig-cache", "tmp", tmp.sub_path[0..] });
+         break :blk try fs.realpathAlloc(allocator, relative_path);
+     };
+ 
+@@ -344,7 +344,7 @@ test "openDirAbsolute" {
+     const allocator = arena.allocator();
+ 
+     const base_path = blk: {
+-        const relative_path = try fs.path.join(allocator, &.{ "zig-cache", "tmp", tmp.sub_path[0..], "subdir" });
++        const relative_path = try fs.path.join(allocator, &.{ ".zig-cache", "tmp", tmp.sub_path[0..], "subdir" });
+         break :blk try fs.realpathAlloc(allocator, relative_path);
+     };
+ 
+@@ -407,7 +407,7 @@ test "readLinkAbsolute" {
+     const allocator = arena.allocator();
+ 
+     const base_path = blk: {
+-        const relative_path = try fs.path.join(allocator, &.{ "zig-cache", "tmp", tmp.sub_path[0..] });
++        const relative_path = try fs.path.join(allocator, &.{ ".zig-cache", "tmp", tmp.sub_path[0..] });
+         break :blk try fs.realpathAlloc(allocator, relative_path);
+     };
+ 
+@@ -990,7 +990,7 @@ test "renameAbsolute" {
+     const allocator = arena.allocator();
+ 
+     const base_path = blk: {
+-        const relative_path = try fs.path.join(allocator, &.{ "zig-cache", "tmp", tmp_dir.sub_path[0..] });
++        const relative_path = try fs.path.join(allocator, &.{ ".zig-cache", "tmp", tmp_dir.sub_path[0..] });
+         break :blk try fs.realpathAlloc(allocator, relative_path);
+     };
+ 
+@@ -1772,7 +1772,7 @@ test "'.' and '..' in absolute functions" {
+     const allocator = arena.allocator();
+ 
+     const base_path = blk: {
+-        const relative_path = try fs.path.join(allocator, &.{ "zig-cache", "tmp", tmp.sub_path[0..] });
++        const relative_path = try fs.path.join(allocator, &.{ ".zig-cache", "tmp", tmp.sub_path[0..] });
+         break :blk try fs.realpathAlloc(allocator, relative_path);
+     };
+ 
+-- 
+2.47.2
+

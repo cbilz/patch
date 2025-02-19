@@ -1,0 +1,27 @@
+From 05ceac52c9e968257988adc922f91fbe078649b9 Mon Sep 17 00:00:00 2001
+From: Ali Chraghi <alichraghi@proton.me>
+Date: Tue, 2 May 2023 01:53:01 +0330
+Subject: [PATCH 8/8] std.Build: support #cmakedefine01 pattern
+
+---
+ lib/std/Build/Step/ConfigHeader.zig | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/Step/ConfigHeader.zig b/Step/ConfigHeader.zig
+index a17784c96..f6939e0e3 100644
+--- a/Step/ConfigHeader.zig
++++ b/Step/ConfigHeader.zig
+@@ -306,7 +306,9 @@ fn render_cmake(
+         }
+         var it = std.mem.tokenize(u8, line[1..], " \t\r");
+         const cmakedefine = it.next().?;
+-        if (!std.mem.eql(u8, cmakedefine, "cmakedefine")) {
++        if (!std.mem.eql(u8, cmakedefine, "cmakedefine") and
++            !std.mem.eql(u8, cmakedefine, "cmakedefine01"))
++        {
+             try output.appendSlice(line);
+             try output.appendSlice("\n");
+             continue;
+-- 
+2.47.2
+

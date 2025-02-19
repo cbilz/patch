@@ -1,0 +1,26 @@
+From 11fabc4cbee7addbdb86d6ba0297abe8274bbbb4 Mon Sep 17 00:00:00 2001
+From: 0x5a4 <54070204+0x5a4@users.noreply.github.com>
+Date: Sat, 6 May 2023 21:28:08 +0200
+Subject: [PATCH 7/8] fix 'zig build test' crashing with no tests
+
+fixes #15553
+---
+ lib/std/Build/Step/Run.zig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Step/Run.zig b/Step/Run.zig
+index c506e23f9..ba2c084e2 100644
+--- a/Step/Run.zig
++++ b/Step/Run.zig
+@@ -822,7 +822,7 @@ fn runCommand(
+         .zig_test => {
+             const prefix: []const u8 = p: {
+                 if (result.stdio.test_metadata) |tm| {
+-                    if (tm.next_index <= tm.names.len) {
++                    if (tm.next_index > 0 and tm.next_index <= tm.names.len) {
+                         const name = tm.testName(tm.next_index - 1);
+                         break :p b.fmt("while executing test '{s}', ", .{name});
+                     }
+-- 
+2.47.2
+

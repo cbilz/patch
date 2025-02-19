@@ -1,0 +1,27 @@
+From 016e87e7efa0311fe360ca2f0ba2a6fa583b3fda Mon Sep 17 00:00:00 2001
+From: Ryan Liptak <squeek502@hotmail.com>
+Date: Tue, 4 Jun 2024 18:44:51 -0700
+Subject: [PATCH 13/14] fs tests: Fix leaking a directory handle in "makepath
+ existing directories" test
+
+---
+ lib/std/fs/test.zig | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/test.zig b/test.zig
+index bd2f4e844..dda953e5e 100644
+--- a/test.zig
++++ b/test.zig
+@@ -1161,7 +1161,8 @@ test "makepath existing directories" {
+     defer tmp.cleanup();
+ 
+     try tmp.dir.makeDir("A");
+-    const tmpA = try tmp.dir.openDir("A", .{});
++    var tmpA = try tmp.dir.openDir("A", .{});
++    defer tmpA.close();
+     try tmpA.makeDir("B");
+ 
+     const testPath = "A" ++ fs.path.sep_str ++ "B" ++ fs.path.sep_str ++ "C";
+-- 
+2.47.2
+

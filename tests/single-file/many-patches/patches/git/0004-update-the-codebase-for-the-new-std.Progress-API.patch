@@ -1,0 +1,49 @@
+From f97c2f28fdc3061bc7e30ccfcafaccbee77993b6 Mon Sep 17 00:00:00 2001
+From: Andrew Kelley <andrew@ziglang.org>
+Date: Fri, 24 May 2024 08:22:47 -0700
+Subject: [PATCH 4/5] update the codebase for the new std.Progress API
+
+---
+ lib/std/Build.zig | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/lib/std/Build.zig b/lib/std/Build.zig
+index a2e8a7c56..4443fa404 100644
+--- a/lib/std/Build.zig
++++ b/lib/std/Build.zig
+@@ -1059,7 +1059,7 @@ pub fn getUninstallStep(b: *Build) *Step {
+     return &b.uninstall_tls.step;
+ }
+ 
+-fn makeUninstall(uninstall_step: *Step, prog_node: *std.Progress.Node) anyerror!void {
++fn makeUninstall(uninstall_step: *Step, prog_node: std.Progress.Node) anyerror!void {
+     _ = prog_node;
+     const uninstall_tls: *TopLevelStep = @fieldParentPtr("step", uninstall_step);
+     const b: *Build = @fieldParentPtr("uninstall_tls", uninstall_tls);
+@@ -2281,10 +2281,10 @@ pub const LazyPath = union(enum) {
+             .cwd_relative => |p| return src_builder.pathFromCwd(p),
+             .generated => |gen| {
+                 var file_path: []const u8 = gen.file.step.owner.pathFromRoot(gen.file.path orelse {
+-                    std.debug.getStderrMutex().lock();
++                    std.debug.lockStdErr();
+                     const stderr = std.io.getStdErr();
+                     dumpBadGetPathHelp(gen.file.step, stderr, src_builder, asking_step) catch {};
+-                    std.debug.getStderrMutex().unlock();
++                    std.debug.unlockStdErr();
+                     @panic("misconfigured build script");
+                 });
+ 
+@@ -2351,8 +2351,8 @@ fn dumpBadDirnameHelp(
+     comptime msg: []const u8,
+     args: anytype,
+ ) anyerror!void {
+-    debug.getStderrMutex().lock();
+-    defer debug.getStderrMutex().unlock();
++    debug.lockStdErr();
++    defer debug.unlockStdErr();
+ 
+     const stderr = io.getStdErr();
+     const w = stderr.writer();
+-- 
+2.47.2
+

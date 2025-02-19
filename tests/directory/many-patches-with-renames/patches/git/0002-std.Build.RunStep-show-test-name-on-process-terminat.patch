@@ -1,0 +1,80 @@
+From e3bb06a984ea934d6db811937186b0eee981e8e8 Mon Sep 17 00:00:00 2001
+From: Andrew Kelley <andrew@ziglang.org>
+Date: Fri, 28 Apr 2023 13:08:23 -0700
+Subject: [PATCH 2/8] std.Build.RunStep: show test name on process termination
+
+This is a small change to help when reading failure logs which makes the
+"exited with code 1" and similar message include the test name.
+
+Further enhancements could do the following:
+ * even if one unit test crashes the process, the parent process
+   continues running the other unit tests
+ * ability to test for expected panics (#1356)
+ * timeouts on individual tests
+---
+ lib/std/Build/RunStep.zig | 19 ++++++++++++++++---
+ 1 file changed, 16 insertions(+), 3 deletions(-)
+
+diff --git a/RunStep.zig b/RunStep.zig
+index 435c7369d..ce2dd0234 100644
+--- a/RunStep.zig
++++ b/RunStep.zig
+@@ -822,9 +822,19 @@ fn runCommand(
+             },
+         },
+         .zig_test => {
++            const prefix: []const u8 = p: {
++                if (result.stdio.test_metadata) |tm| {
++                    if (tm.next_index <= tm.names.len) {
++                        const name = tm.testName(tm.next_index - 1);
++                        break :p b.fmt("while executing test '{s}', ", .{name});
++                    }
++                }
++                break :p "";
++            };
+             const expected_term: std.process.Child.Term = .{ .Exited = 0 };
+             if (!termMatches(expected_term, result.term)) {
+-                return step.fail("the following command {} (expected {}):\n{s}", .{
++                return step.fail("{s}the following command {} (expected {}):\n{s}", .{
++                    prefix,
+                     fmtTerm(result.term),
+                     fmtTerm(expected_term),
+                     try Step.allocPrintCmd(arena, self.cwd, final_argv),
+@@ -832,8 +842,8 @@ fn runCommand(
+             }
+             if (!result.stdio.test_results.isSuccess()) {
+                 return step.fail(
+-                    "the following test command failed:\n{s}",
+-                    .{try Step.allocPrintCmd(arena, self.cwd, final_argv)},
++                    "{s}the following test command failed:\n{s}",
++                    .{ prefix, try Step.allocPrintCmd(arena, self.cwd, final_argv) },
+                 );
+             }
+         },
+@@ -922,6 +932,7 @@ const StdIoResult = struct {
+     stdout_null: bool,
+     stderr_null: bool,
+     test_results: Step.TestResults,
++    test_metadata: ?TestMetadata,
+ };
+ 
+ fn evalZigTest(
+@@ -1057,6 +1068,7 @@ fn evalZigTest(
+             .skip_count = skip_count,
+             .leak_count = leak_count,
+         },
++        .test_metadata = metadata,
+     };
+ }
+ 
+@@ -1172,6 +1184,7 @@ fn evalGeneric(self: *RunStep, child: *std.process.Child) !StdIoResult {
+         .stdout_null = stdout_null,
+         .stderr_null = stderr_null,
+         .test_results = .{},
++        .test_metadata = null,
+     };
+ }
+ 
+-- 
+2.47.2
+

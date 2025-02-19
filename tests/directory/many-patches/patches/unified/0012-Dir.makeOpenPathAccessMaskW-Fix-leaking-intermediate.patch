@@ -1,0 +1,19 @@
+diff -u Dir.zig Dir.zig
+--- Dir.zig	2025-02-19 16:35:35.034452025 +0100
++++ Dir.zig	2025-02-19 16:35:35.037327274 +0100
+@@ -1217,10 +1217,13 @@
+             },
+             else => |e| return e,
+         };
+-        // Don't leak the intermediate file handles
+-        errdefer if (result) |*dir| dir.close();
+ 
+         component = it.next() orelse return result.?;
++
++        // Don't leak the intermediate file handles
++        if (result) |*dir| {
++            dir.close();
++        }
+     }
+ }
+ 

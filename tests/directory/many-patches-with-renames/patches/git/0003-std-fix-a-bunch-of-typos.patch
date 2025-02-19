@@ -1,0 +1,70 @@
+From 94e30a756edc4c2182168dabd97d481b8aec0ff2 Mon Sep 17 00:00:00 2001
+From: Linus Groh <mail@linusgroh.de>
+Date: Sun, 30 Apr 2023 18:02:08 +0100
+Subject: [PATCH 3/8] std: fix a bunch of typos
+
+The majority of these are in comments, some in doc comments which might
+affect the generated documentation, and a few in parameter names -
+nothing that should be breaking, however.
+---
+ lib/std/Build/Cache/DepTokenizer.zig | 2 +-
+ lib/std/Build/CheckObjectStep.zig    | 2 +-
+ lib/std/Build/RunStep.zig            | 2 +-
+ lib/std/Build/Step.zig               | 2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/Cache/DepTokenizer.zig b/Cache/DepTokenizer.zig
+index 8f9f2f81c..c640fa4ad 100644
+--- a/Cache/DepTokenizer.zig
++++ b/Cache/DepTokenizer.zig
+@@ -829,7 +829,7 @@ test "error illegal char at position - bad target escape" {
+     );
+ }
+ 
+-test "error illegal char at position - execting dollar_sign" {
++test "error illegal char at position - expecting dollar_sign" {
+     try depTokenizer("$\t",
+         \\ERROR: illegal char \x09 at position 1: expecting '$'
+     );
+diff --git a/CheckObjectStep.zig b/CheckObjectStep.zig
+index fbeb87bae..e79ce9d3d 100644
+--- a/CheckObjectStep.zig
++++ b/CheckObjectStep.zig
+@@ -68,7 +68,7 @@ const SearchPhrase = struct {
+     }
+ };
+ 
+-/// There two types of actions currently suported:
++/// There two types of actions currently supported:
+ /// * `.match` - is the main building block of standard matchers with optional eat-all token `{*}`
+ /// and extractors by name such as `{n_value}`. Please note this action is very simplistic in nature
+ /// i.e., it won't really handle edge cases/nontrivial examples. But given that we do want to use
+diff --git a/RunStep.zig b/RunStep.zig
+index ce2dd0234..5d530c7a2 100644
+--- a/RunStep.zig
++++ b/RunStep.zig
+@@ -90,7 +90,7 @@ pub const StdIo = union(enum) {
+     /// certain conditions, and the step will succeed or fail based on these
+     /// conditions.
+     /// Note that an explicit check for exit code 0 needs to be added to this
+-    /// list if such a check is desireable.
++    /// list if such a check is desirable.
+     check: std.ArrayList(Check),
+     /// This RunStep is running a zig unit test binary and will communicate
+     /// extra metadata over the IPC protocol.
+diff --git a/Step.zig b/Step.zig
+index 0c05a64b1..bdb500d99 100644
+--- a/Step.zig
++++ b/Step.zig
+@@ -37,7 +37,7 @@ result_duration_ns: ?u64,
+ result_peak_rss: usize,
+ test_results: TestResults,
+ 
+-/// The return addresss associated with creation of this step that can be useful
++/// The return address associated with creation of this step that can be useful
+ /// to print along with debugging messages.
+ debug_stack_trace: [n_debug_stack_frames]usize,
+ 
+-- 
+2.47.2
+

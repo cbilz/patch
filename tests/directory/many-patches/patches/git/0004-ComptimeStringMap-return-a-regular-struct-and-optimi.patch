@@ -1,0 +1,69 @@
+From 8af59d1f98266bd70b3afb44d196bbd151cedf22 Mon Sep 17 00:00:00 2001
+From: Travis Staloch <1562827+travisstaloch@users.noreply.github.com>
+Date: Sat, 20 Apr 2024 23:14:39 -0700
+Subject: [PATCH 04/14] ComptimeStringMap: return a regular struct and optimize
+
+this patch renames ComptimeStringMap to StaticStringMap, makes it
+accept only a single type parameter, and return a known struct type
+instead of an anonymous struct.  initial motivation for these changes
+was to reduce the 'very long type names' issue described here
+https://github.com/ziglang/zig/pull/19682.
+
+this breaks the previous API.  users will now need to write:
+`const map = std.StaticStringMap(T).initComptime(kvs_list);`
+
+* move `kvs_list` param from type param to an `initComptime()` param
+* new public methods
+  * `keys()`, `values()` helpers
+  * `init(allocator)`, `deinit(allocator)` for runtime data
+  * `getLongestPrefix(str)`, `getLongestPrefixIndex(str)` - i'm not sure
+     these belong but have left in for now incase they are deemed useful
+* performance notes:
+  * i posted some benchmarking results here:
+    https://github.com/travisstaloch/comptime-string-map-revised/issues/1
+  * i noticed a speedup reducing the size of the struct from 48 to 32
+    bytes and thus use u32s instead of usize for all length fields
+  * i noticed speedup storing KVs as a struct of arrays
+  * latest benchmark shows these wall_time improvements for
+    debug/safe/small/fast builds: -6.6% / -10.2% / -19.1% / -8.9%. full
+    output in link above.
+---
+ lib/std/fs/test.zig | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/test.zig b/test.zig
+index 3aa932cf0..488632b34 100644
+--- a/test.zig
++++ b/test.zig
+@@ -1641,7 +1641,7 @@ test "walker" {
+ 
+     // iteration order of walker is undefined, so need lookup maps to check against
+ 
+-    const expected_paths = std.ComptimeStringMap(void, .{
++    const expected_paths = std.StaticStringMap(void).initComptime(.{
+         .{"dir1"},
+         .{"dir2"},
+         .{"dir3"},
+@@ -1651,7 +1651,7 @@ test "walker" {
+         .{"dir3" ++ fs.path.sep_str ++ "sub2" ++ fs.path.sep_str ++ "subsub1"},
+     });
+ 
+-    const expected_basenames = std.ComptimeStringMap(void, .{
++    const expected_basenames = std.StaticStringMap(void).initComptime(.{
+         .{"dir1"},
+         .{"dir2"},
+         .{"dir3"},
+@@ -1661,8 +1661,8 @@ test "walker" {
+         .{"subsub1"},
+     });
+ 
+-    for (expected_paths.kvs) |kv| {
+-        try tmp.dir.makePath(kv.key);
++    for (expected_paths.keys()) |key| {
++        try tmp.dir.makePath(key);
+     }
+ 
+     var walker = try tmp.dir.walk(testing.allocator);
+-- 
+2.47.2
+

@@ -1,0 +1,12 @@
+diff -u test.zig test.zig
+--- test.zig	2025-02-19 16:35:34.843542516 +0100
++++ test.zig	2025-02-19 16:35:34.845326388 +0100
+@@ -1712,7 +1712,7 @@
+ test "'.' and '..' in fs.Dir functions" {
+     if (native_os == .wasi and builtin.link_libc) return error.SkipZigTest;
+ 
+-    if (native_os == .windows and builtin.cpu.arch == .aarch64) {
++    if (native_os == .windows) {
+         // https://github.com/ziglang/zig/issues/17134
+         return error.SkipZigTest;
+     }

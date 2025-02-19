@@ -1,0 +1,52 @@
+From 084c2cd90f79d5e7edf76b7ddd390adb95a27f0c Mon Sep 17 00:00:00 2001
+From: Georgijs <48869301+gvilums@users.noreply.github.com>
+Date: Sat, 11 May 2024 14:34:40 -0700
+Subject: [PATCH 08/14] windows: use permissive file share flags everywhere
+ (#19505)
+
+* use permissive file share flags everywhere
+
+* remove file_share_delete from createnamedpipefile
+---
+ lib/std/fs/Dir.zig  | 4 ++--
+ lib/std/fs/test.zig | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/Dir.zig b/Dir.zig
+index 484e70d1d..192a0d4b3 100644
+--- a/Dir.zig
++++ b/Dir.zig
+@@ -1325,7 +1325,7 @@ pub fn realpathW(self: Dir, pathname: []const u16, out_buffer: []u8) RealPathErr
+     const w = windows;
+ 
+     const access_mask = w.GENERIC_READ | w.SYNCHRONIZE;
+-    const share_access = w.FILE_SHARE_READ;
++    const share_access = w.FILE_SHARE_READ | w.FILE_SHARE_WRITE | w.FILE_SHARE_DELETE;
+     const creation = w.FILE_OPEN;
+     const h_file = blk: {
+         const res = w.OpenFile(pathname, .{
+@@ -1598,7 +1598,7 @@ fn makeOpenDirAccessMaskW(self: Dir, sub_path_w: [*:0]const u16, access_mask: u3
+         &io,
+         null,
+         w.FILE_ATTRIBUTE_NORMAL,
+-        w.FILE_SHARE_READ | w.FILE_SHARE_WRITE,
++        w.FILE_SHARE_READ | w.FILE_SHARE_WRITE | w.FILE_SHARE_DELETE,
+         flags.create_disposition,
+         w.FILE_DIRECTORY_FILE | w.FILE_SYNCHRONOUS_IO_NONALERT | w.FILE_OPEN_FOR_BACKUP_INTENT | open_reparse_point,
+         null,
+diff --git a/test.zig b/test.zig
+index d1689dcff..63e7968c6 100644
+--- a/test.zig
++++ b/test.zig
+@@ -262,7 +262,7 @@ test "File.stat on a File that is a symlink returns Kind.sym_link" {
+                         &io,
+                         null,
+                         windows.FILE_ATTRIBUTE_NORMAL,
+-                        windows.FILE_SHARE_READ | windows.FILE_SHARE_WRITE,
++                        windows.FILE_SHARE_READ | windows.FILE_SHARE_WRITE | windows.FILE_SHARE_DELETE,
+                         windows.FILE_OPEN,
+                         // FILE_OPEN_REPARSE_POINT is the important thing here
+                         windows.FILE_OPEN_REPARSE_POINT | windows.FILE_DIRECTORY_FILE | windows.FILE_SYNCHRONOUS_IO_NONALERT | windows.FILE_OPEN_FOR_BACKUP_INTENT,
+-- 
+2.47.2
+

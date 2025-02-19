@@ -1,0 +1,33 @@
+diff -u Dir.zig Dir.zig
+--- Dir.zig	2025-02-19 16:35:34.963913808 +0100
++++ Dir.zig	2025-02-19 16:35:34.965800604 +0100
+@@ -1325,7 +1325,7 @@
+     const w = windows;
+ 
+     const access_mask = w.GENERIC_READ | w.SYNCHRONIZE;
+-    const share_access = w.FILE_SHARE_READ;
++    const share_access = w.FILE_SHARE_READ | w.FILE_SHARE_WRITE | w.FILE_SHARE_DELETE;
+     const creation = w.FILE_OPEN;
+     const h_file = blk: {
+         const res = w.OpenFile(pathname, .{
+@@ -1598,7 +1598,7 @@
+         &io,
+         null,
+         w.FILE_ATTRIBUTE_NORMAL,
+-        w.FILE_SHARE_READ | w.FILE_SHARE_WRITE,
++        w.FILE_SHARE_READ | w.FILE_SHARE_WRITE | w.FILE_SHARE_DELETE,
+         flags.create_disposition,
+         w.FILE_DIRECTORY_FILE | w.FILE_SYNCHRONOUS_IO_NONALERT | w.FILE_OPEN_FOR_BACKUP_INTENT | open_reparse_point,
+         null,
+diff -u test.zig test.zig
+--- test.zig	2025-02-19 16:35:34.963913808 +0100
++++ test.zig	2025-02-19 16:35:34.966063279 +0100
+@@ -262,7 +262,7 @@
+                         &io,
+                         null,
+                         windows.FILE_ATTRIBUTE_NORMAL,
+-                        windows.FILE_SHARE_READ | windows.FILE_SHARE_WRITE,
++                        windows.FILE_SHARE_READ | windows.FILE_SHARE_WRITE | windows.FILE_SHARE_DELETE,
+                         windows.FILE_OPEN,
+                         // FILE_OPEN_REPARSE_POINT is the important thing here
+                         windows.FILE_OPEN_REPARSE_POINT | windows.FILE_DIRECTORY_FILE | windows.FILE_SYNCHRONOUS_IO_NONALERT | windows.FILE_OPEN_FOR_BACKUP_INTENT,

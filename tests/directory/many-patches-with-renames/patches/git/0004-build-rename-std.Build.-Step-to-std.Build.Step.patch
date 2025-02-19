@@ -1,0 +1,271 @@
+From 13eb7251d37759bd47403db304c6120c706fe353 Mon Sep 17 00:00:00 2001
+From: Nicolas Sterchele <nicolas@sterchelen.net>
+Date: Mon, 20 Mar 2023 09:23:10 +0100
+Subject: [PATCH 4/8] build: rename std.Build.*Step to std.Build.Step.*
+
+Follow-up actions from #14647
+
+Fixes #14947
+---
+ .../Build/{CheckFileStep.zig => Step/CheckFile.zig}  | 11 +++++------
+ .../{CheckObjectStep.zig => Step/CheckObject.zig}    |  2 +-
+ lib/std/Build/{CompileStep.zig => Step/Compile.zig}  |  2 +-
+ .../{ConfigHeaderStep.zig => Step/ConfigHeader.zig}  |  8 ++++----
+ lib/std/Build/{FmtStep.zig => Step/Fmt.zig}          |  7 +++----
+ .../InstallArtifact.zig}                             |  2 +-
+ .../{InstallDirStep.zig => Step/InstallDir.zig}      |  2 +-
+ .../{InstallFileStep.zig => Step/InstallFile.zig}    |  2 +-
+ lib/std/Build/{ObjCopyStep.zig => Step/ObjCopy.zig}  |  0
+ lib/std/Build/{OptionsStep.zig => Step/Options.zig}  |  2 +-
+ .../Build/{RemoveDirStep.zig => Step/RemoveDir.zig}  |  2 +-
+ lib/std/Build/{RunStep.zig => Step/Run.zig}          |  2 +-
+ .../{TranslateCStep.zig => Step/TranslateC.zig}      |  2 +-
+ .../Build/{WriteFileStep.zig => Step/WriteFile.zig}  | 12 +++++-------
+ 14 files changed, 26 insertions(+), 30 deletions(-)
+ rename lib/std/Build/{CheckFileStep.zig => Step/CheckFile.zig} (98%)
+ rename lib/std/Build/{CheckObjectStep.zig => Step/CheckObject.zig} (99%)
+ rename lib/std/Build/{CompileStep.zig => Step/Compile.zig} (99%)
+ rename lib/std/Build/{ConfigHeaderStep.zig => Step/ConfigHeader.zig} (99%)
+ rename lib/std/Build/{FmtStep.zig => Step/Fmt.zig} (98%)
+ rename lib/std/Build/{InstallArtifactStep.zig => Step/InstallArtifact.zig} (99%)
+ rename lib/std/Build/{InstallDirStep.zig => Step/InstallDir.zig} (99%)
+ rename lib/std/Build/{InstallFileStep.zig => Step/InstallFile.zig} (98%)
+ rename lib/std/Build/{ObjCopyStep.zig => Step/ObjCopy.zig} (100%)
+ rename lib/std/Build/{OptionsStep.zig => Step/Options.zig} (99%)
+ rename lib/std/Build/{RemoveDirStep.zig => Step/RemoveDir.zig} (97%)
+ rename lib/std/Build/{RunStep.zig => Step/Run.zig} (99%)
+ rename lib/std/Build/{TranslateCStep.zig => Step/TranslateC.zig} (99%)
+ rename lib/std/Build/{WriteFileStep.zig => Step/WriteFile.zig} (99%)
+
+diff --git a/CheckFileStep.zig b/Step/CheckFile.zig
+similarity index 98%
+rename from lib/std/Build/CheckFileStep.zig
+rename to lib/std/Build/Step/CheckFile.zig
+index 1c2b6b778..ad8b1a25f 100644
+--- a/CheckFileStep.zig
++++ b/Step/CheckFile.zig
+@@ -2,6 +2,11 @@
+ //! TODO: make this more flexible, supporting more kinds of checks.
+ //! TODO: generalize the code in std.testing.expectEqualStrings and make this
+ //! CheckFileStep produce those helpful diagnostics when there is not a match.
++const CheckFileStep = @This();
++const std = @import("std");
++const Step = std.Build.Step;
++const fs = std.fs;
++const mem = std.mem;
+ 
+ step: Step,
+ expected_matches: []const []const u8,
+@@ -80,9 +85,3 @@ fn make(step: *Step, prog_node: *std.Progress.Node) !void {
+         }
+     }
+ }
+-
+-const CheckFileStep = @This();
+-const std = @import("../std.zig");
+-const Step = std.Build.Step;
+-const fs = std.fs;
+-const mem = std.mem;
+diff --git a/CheckObjectStep.zig b/Step/CheckObject.zig
+similarity index 99%
+rename from lib/std/Build/CheckObjectStep.zig
+rename to lib/std/Build/Step/CheckObject.zig
+index e79ce9d3d..431f74ecc 100644
+--- a/CheckObjectStep.zig
++++ b/Step/CheckObject.zig
+@@ -1,4 +1,4 @@
+-const std = @import("../std.zig");
++const std = @import("std");
+ const assert = std.debug.assert;
+ const fs = std.fs;
+ const macho = std.macho;
+diff --git a/CompileStep.zig b/Step/Compile.zig
+similarity index 99%
+rename from lib/std/Build/CompileStep.zig
+rename to lib/std/Build/Step/Compile.zig
+index d5a135e24..7627c4e6d 100644
+--- a/CompileStep.zig
++++ b/Step/Compile.zig
+@@ -1,5 +1,5 @@
+ const builtin = @import("builtin");
+-const std = @import("../std.zig");
++const std = @import("std");
+ const mem = std.mem;
+ const fs = std.fs;
+ const assert = std.debug.assert;
+diff --git a/ConfigHeaderStep.zig b/Step/ConfigHeader.zig
+similarity index 99%
+rename from lib/std/Build/ConfigHeaderStep.zig
+rename to lib/std/Build/Step/ConfigHeader.zig
+index c1849b410..6bfe28ae6 100644
+--- a/ConfigHeaderStep.zig
++++ b/Step/ConfigHeader.zig
+@@ -1,3 +1,7 @@
++const std = @import("std");
++const ConfigHeaderStep = @This();
++const Step = std.Build.Step;
++
+ pub const Style = union(enum) {
+     /// The configure format supported by autotools. It uses `#undef foo` to
+     /// mark lines that can be substituted with different values.
+@@ -431,7 +435,3 @@ fn renderValueNasm(output: *std.ArrayList(u8), name: []const u8, value: Value) !
+         },
+     }
+ }
+-
+-const std = @import("../std.zig");
+-const ConfigHeaderStep = @This();
+-const Step = std.Build.Step;
+diff --git a/FmtStep.zig b/Step/Fmt.zig
+similarity index 98%
+rename from lib/std/Build/FmtStep.zig
+rename to lib/std/Build/Step/Fmt.zig
+index 2a8234233..23d5d9e3f 100644
+--- a/FmtStep.zig
++++ b/Step/Fmt.zig
+@@ -1,6 +1,9 @@
+ //! This step has two modes:
+ //! * Modify mode: directly modify source files, formatting them in place.
+ //! * Check mode: fail the step if a non-conforming file is found.
++const std = @import("std");
++const Step = std.Build.Step;
++const FmtStep = @This();
+ 
+ step: Step,
+ paths: []const []const u8,
+@@ -67,7 +70,3 @@ fn make(step: *Step, prog_node: *std.Progress.Node) !void {
+ 
+     return step.evalChildProcess(argv.items);
+ }
+-
+-const std = @import("../std.zig");
+-const Step = std.Build.Step;
+-const FmtStep = @This();
+diff --git a/InstallArtifactStep.zig b/Step/InstallArtifact.zig
+similarity index 99%
+rename from lib/std/Build/InstallArtifactStep.zig
+rename to lib/std/Build/Step/InstallArtifact.zig
+index 50cf6ff32..fa357a9ae 100644
+--- a/InstallArtifactStep.zig
++++ b/Step/InstallArtifact.zig
+@@ -1,4 +1,4 @@
+-const std = @import("../std.zig");
++const std = @import("std");
+ const Step = std.Build.Step;
+ const CompileStep = std.Build.CompileStep;
+ const InstallDir = std.Build.InstallDir;
+diff --git a/InstallDirStep.zig b/Step/InstallDir.zig
+similarity index 99%
+rename from lib/std/Build/InstallDirStep.zig
+rename to lib/std/Build/Step/InstallDir.zig
+index d9ea24891..28280dcb7 100644
+--- a/InstallDirStep.zig
++++ b/Step/InstallDir.zig
+@@ -1,4 +1,4 @@
+-const std = @import("../std.zig");
++const std = @import("std");
+ const mem = std.mem;
+ const fs = std.fs;
+ const Step = std.Build.Step;
+diff --git a/InstallFileStep.zig b/Step/InstallFile.zig
+similarity index 98%
+rename from lib/std/Build/InstallFileStep.zig
+rename to lib/std/Build/Step/InstallFile.zig
+index 011ad4820..b6b66fd1e 100644
+--- a/InstallFileStep.zig
++++ b/Step/InstallFile.zig
+@@ -1,4 +1,4 @@
+-const std = @import("../std.zig");
++const std = @import("std");
+ const Step = std.Build.Step;
+ const FileSource = std.Build.FileSource;
+ const InstallDir = std.Build.InstallDir;
+diff --git a/ObjCopyStep.zig b/Step/ObjCopy.zig
+similarity index 100%
+rename from lib/std/Build/ObjCopyStep.zig
+rename to lib/std/Build/Step/ObjCopy.zig
+diff --git a/OptionsStep.zig b/Step/Options.zig
+similarity index 99%
+rename from lib/std/Build/OptionsStep.zig
+rename to lib/std/Build/Step/Options.zig
+index a0e72e369..101c284cf 100644
+--- a/OptionsStep.zig
++++ b/Step/Options.zig
+@@ -1,4 +1,4 @@
+-const std = @import("../std.zig");
++const std = @import("std");
+ const builtin = @import("builtin");
+ const fs = std.fs;
+ const Step = std.Build.Step;
+diff --git a/RemoveDirStep.zig b/Step/RemoveDir.zig
+similarity index 97%
+rename from lib/std/Build/RemoveDirStep.zig
+rename to lib/std/Build/Step/RemoveDir.zig
+index a5bf3c325..59025a7e9 100644
+--- a/RemoveDirStep.zig
++++ b/Step/RemoveDir.zig
+@@ -1,4 +1,4 @@
+-const std = @import("../std.zig");
++const std = @import("std");
+ const fs = std.fs;
+ const Step = std.Build.Step;
+ const RemoveDirStep = @This();
+diff --git a/RunStep.zig b/Step/Run.zig
+similarity index 99%
+rename from lib/std/Build/RunStep.zig
+rename to lib/std/Build/Step/Run.zig
+index 5d530c7a2..4e973cfd9 100644
+--- a/RunStep.zig
++++ b/Step/Run.zig
+@@ -1,4 +1,4 @@
+-const std = @import("../std.zig");
++const std = @import("std");
+ const builtin = @import("builtin");
+ const Step = std.Build.Step;
+ const CompileStep = std.Build.CompileStep;
+diff --git a/TranslateCStep.zig b/Step/TranslateC.zig
+similarity index 99%
+rename from lib/std/Build/TranslateCStep.zig
+rename to lib/std/Build/Step/TranslateC.zig
+index f2dc23d95..86727ea2f 100644
+--- a/TranslateCStep.zig
++++ b/Step/TranslateC.zig
+@@ -1,4 +1,4 @@
+-const std = @import("../std.zig");
++const std = @import("std");
+ const Step = std.Build.Step;
+ const CompileStep = std.Build.CompileStep;
+ const CheckFileStep = std.Build.CheckFileStep;
+diff --git a/WriteFileStep.zig b/Step/WriteFile.zig
+similarity index 99%
+rename from lib/std/Build/WriteFileStep.zig
+rename to lib/std/Build/Step/WriteFile.zig
+index dee79af5b..68f7c37c6 100644
+--- a/WriteFileStep.zig
++++ b/Step/WriteFile.zig
+@@ -8,6 +8,11 @@
+ //! during the normal build process, but as a utility run by a developer with
+ //! intention to update source files, which will then be committed to version
+ //! control.
++const std = @import("std");
++const Step = std.Build.Step;
++const fs = std.fs;
++const ArrayList = std.ArrayList;
++const WriteFileStep = @This();
+ 
+ step: Step,
+ /// The elements here are pointers because we need stable pointers for the
+@@ -284,10 +289,3 @@ fn make(step: *Step, prog_node: *std.Progress.Node) !void {
+ 
+     try step.writeManifest(&man);
+ }
+-
+-const std = @import("../std.zig");
+-const Step = std.Build.Step;
+-const fs = std.fs;
+-const ArrayList = std.ArrayList;
+-
+-const WriteFileStep = @This();
+-- 
+2.47.2
+

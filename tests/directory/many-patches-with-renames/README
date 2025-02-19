@@ -1,0 +1,5 @@
+The code in this test case was taken from lib/std/Build/ in the Zig repository.
+The patches contain all changes from revisions
+bc8e1e1de4a2f22c56528240d320f682f1ec4b69 to
+05ceac52c9e968257988adc922f91fbe078649b9. This range was chosen because it
+contains a commit that moves some files.

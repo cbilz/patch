@@ -1,0 +1,39 @@
+From 6261c1373168b265047db5704d9d0fd5f2e458f2 Mon Sep 17 00:00:00 2001
+From: Andrew Kelley <andrew@ziglang.org>
+Date: Wed, 26 Apr 2023 13:57:08 -0700
+Subject: [PATCH 1/8] update codebase to use `@memset` and `@memcpy`
+
+---
+ lib/std/Build/Cache.zig       | 2 +-
+ lib/std/Build/CompileStep.zig | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/Cache.zig b/Cache.zig
+index cae779a30..913931178 100644
+--- a/Cache.zig
++++ b/Cache.zig
+@@ -388,7 +388,7 @@ pub const Manifest = struct {
+         self.hash.hasher = hasher_init;
+         self.hash.hasher.update(&bin_digest);
+ 
+-        mem.copy(u8, &manifest_file_path, &self.hex_digest);
++        @memcpy(manifest_file_path[0..self.hex_digest.len], &self.hex_digest);
+         manifest_file_path[hex_digest_len..][0..ext.len].* = ext.*;
+ 
+         if (self.files.items.len == 0) {
+diff --git a/CompileStep.zig b/CompileStep.zig
+index b71298ce6..d5a135e24 100644
+--- a/CompileStep.zig
++++ b/CompileStep.zig
+@@ -1139,7 +1139,7 @@ fn appendModuleArgs(
+         // We'll use this buffer to store the name we decide on
+         var buf = try b.allocator.alloc(u8, dep.name.len + 32);
+         // First, try just the exposed dependency name
+-        std.mem.copy(u8, buf, dep.name);
++        @memcpy(buf[0..dep.name.len], dep.name);
+         var name = buf[0..dep.name.len];
+         var n: usize = 0;
+         while (names.contains(name)) {
+-- 
+2.47.2
+

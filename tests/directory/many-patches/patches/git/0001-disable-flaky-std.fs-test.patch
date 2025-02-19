@@ -1,0 +1,26 @@
+From d080622cc3f5db1ae3cd628c21c1ffaeb2b899d5 Mon Sep 17 00:00:00 2001
+From: Andrew Kelley <andrew@ziglang.org>
+Date: Fri, 19 Apr 2024 19:01:13 -0700
+Subject: [PATCH 01/14] disable flaky std.fs test
+
+Tracked by #17134
+---
+ lib/std/fs/test.zig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/test.zig b/test.zig
+index 3aa932cf0..b37ad9bc3 100644
+--- a/test.zig
++++ b/test.zig
+@@ -1712,7 +1712,7 @@ test "walker without fully iterating" {
+ test "'.' and '..' in fs.Dir functions" {
+     if (native_os == .wasi and builtin.link_libc) return error.SkipZigTest;
+ 
+-    if (native_os == .windows and builtin.cpu.arch == .aarch64) {
++    if (native_os == .windows) {
+         // https://github.com/ziglang/zig/issues/17134
+         return error.SkipZigTest;
+     }
+-- 
+2.47.2
+

@@ -1,0 +1,43 @@
+From f47824f24d1b20c276a797df8cf99066c08203b6 Mon Sep 17 00:00:00 2001
+From: Andrew Kelley <andrew@ziglang.org>
+Date: Thu, 23 May 2024 11:25:41 -0700
+Subject: [PATCH 3/5] std: restructure child process namespace
+
+---
+ lib/std/Build.zig | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/lib/std/Build.zig b/lib/std/Build.zig
+index 6c8ba7573..a2e8a7c56 100644
+--- a/lib/std/Build.zig
++++ b/lib/std/Build.zig
+@@ -178,7 +178,7 @@ pub const RunError = error{
+     ExitCodeFailure,
+     ProcessTerminated,
+     ExecNotSupported,
+-} || std.ChildProcess.SpawnError;
++} || std.process.Child.SpawnError;
+ 
+ pub const PkgConfigError = error{
+     PkgConfigCrashed,
+@@ -1719,7 +1719,7 @@ pub fn runAllowFail(
+     b: *Build,
+     argv: []const []const u8,
+     out_code: *u8,
+-    stderr_behavior: std.ChildProcess.StdIo,
++    stderr_behavior: std.process.Child.StdIo,
+ ) RunError![]u8 {
+     assert(argv.len != 0);
+ 
+@@ -1727,7 +1727,7 @@ pub fn runAllowFail(
+         return error.ExecNotSupported;
+ 
+     const max_output_size = 400 * 1024;
+-    var child = std.ChildProcess.init(argv, b.allocator);
++    var child = std.process.Child.init(argv, b.allocator);
+     child.stdin_behavior = .Ignore;
+     child.stdout_behavior = .Pipe;
+     child.stderr_behavior = stderr_behavior;
+-- 
+2.47.2
+

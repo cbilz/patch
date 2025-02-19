@@ -1,0 +1,312 @@
+From aecd9cc6d152443dc7c02dfe373be654d8adae64 Mon Sep 17 00:00:00 2001
+From: Nameless <truemedian@gmail.com>
+Date: Fri, 26 Apr 2024 12:57:03 -0500
+Subject: [PATCH 05/14] std.posix.iovec: use .base and .len instead of
+ .iov_base and .iov_len
+
+---
+ lib/std/fs/File.zig | 64 ++++++++++++++++++++++-----------------------
+ lib/std/fs/test.zig | 56 +++++++++++++++++++--------------------
+ 2 files changed, 60 insertions(+), 60 deletions(-)
+
+diff --git a/File.zig b/File.zig
+index 0b5058c5f..42a2ae713 100644
+--- a/File.zig
++++ b/File.zig
+@@ -1138,7 +1138,7 @@ pub fn readv(self: File, iovecs: []const posix.iovec) ReadError!usize {
+         // TODO improve this to use ReadFileScatter
+         if (iovecs.len == 0) return @as(usize, 0);
+         const first = iovecs[0];
+-        return windows.ReadFile(self.handle, first.iov_base[0..first.iov_len], null);
++        return windows.ReadFile(self.handle, first.base[0..first.len], null);
+     }
+ 
+     return posix.readv(self.handle, iovecs);
+@@ -1153,7 +1153,7 @@ pub fn readv(self: File, iovecs: []const posix.iovec) ReadError!usize {
+ ///   reads from the underlying OS layer.
+ /// * The OS layer expects pointer addresses to be inside the application's address space
+ ///   even if the length is zero. Meanwhile, in Zig, slices may have undefined pointer
+-///   addresses when the length is zero. So this function modifies the iov_base fields
++///   addresses when the length is zero. So this function modifies the base fields
+ ///   when the length is zero.
+ ///
+ /// Related open issue: https://github.com/ziglang/zig/issues/7699
+@@ -1165,7 +1165,7 @@ pub fn readvAll(self: File, iovecs: []posix.iovec) ReadError!usize {
+     // addresses outside the application's address space.
+     var garbage: [1]u8 = undefined;
+     for (iovecs) |*v| {
+-        if (v.iov_len == 0) v.iov_base = &garbage;
++        if (v.len == 0) v.base = &garbage;
+     }
+ 
+     var i: usize = 0;
+@@ -1174,15 +1174,15 @@ pub fn readvAll(self: File, iovecs: []posix.iovec) ReadError!usize {
+         var amt = try self.readv(iovecs[i..]);
+         var eof = amt == 0;
+         off += amt;
+-        while (amt >= iovecs[i].iov_len) {
+-            amt -= iovecs[i].iov_len;
++        while (amt >= iovecs[i].len) {
++            amt -= iovecs[i].len;
+             i += 1;
+             if (i >= iovecs.len) return off;
+             eof = false;
+         }
+         if (eof) return off;
+-        iovecs[i].iov_base += amt;
+-        iovecs[i].iov_len -= amt;
++        iovecs[i].base += amt;
++        iovecs[i].len -= amt;
+     }
+ }
+ 
+@@ -1194,7 +1194,7 @@ pub fn preadv(self: File, iovecs: []const posix.iovec, offset: u64) PReadError!u
+         // TODO improve this to use ReadFileScatter
+         if (iovecs.len == 0) return @as(usize, 0);
+         const first = iovecs[0];
+-        return windows.ReadFile(self.handle, first.iov_base[0..first.iov_len], offset);
++        return windows.ReadFile(self.handle, first.base[0..first.len], offset);
+     }
+ 
+     return posix.preadv(self.handle, iovecs, offset);
+@@ -1217,15 +1217,15 @@ pub fn preadvAll(self: File, iovecs: []posix.iovec, offset: u64) PReadError!usiz
+         var amt = try self.preadv(iovecs[i..], offset + off);
+         var eof = amt == 0;
+         off += amt;
+-        while (amt >= iovecs[i].iov_len) {
+-            amt -= iovecs[i].iov_len;
++        while (amt >= iovecs[i].len) {
++            amt -= iovecs[i].len;
+             i += 1;
+             if (i >= iovecs.len) return off;
+             eof = false;
+         }
+         if (eof) return off;
+-        iovecs[i].iov_base += amt;
+-        iovecs[i].iov_len -= amt;
++        iovecs[i].base += amt;
++        iovecs[i].len -= amt;
+     }
+ }
+ 
+@@ -1273,7 +1273,7 @@ pub fn writev(self: File, iovecs: []const posix.iovec_const) WriteError!usize {
+         // TODO improve this to use WriteFileScatter
+         if (iovecs.len == 0) return @as(usize, 0);
+         const first = iovecs[0];
+-        return windows.WriteFile(self.handle, first.iov_base[0..first.iov_len], null);
++        return windows.WriteFile(self.handle, first.base[0..first.len], null);
+     }
+ 
+     return posix.writev(self.handle, iovecs);
+@@ -1284,7 +1284,7 @@ pub fn writev(self: File, iovecs: []const posix.iovec_const) WriteError!usize {
+ ///   writes from the underlying OS layer.
+ /// * The OS layer expects pointer addresses to be inside the application's address space
+ ///   even if the length is zero. Meanwhile, in Zig, slices may have undefined pointer
+-///   addresses when the length is zero. So this function modifies the iov_base fields
++///   addresses when the length is zero. So this function modifies the base fields
+ ///   when the length is zero.
+ /// See https://github.com/ziglang/zig/issues/7699
+ /// See equivalent function: `std.net.Stream.writevAll`.
+@@ -1296,19 +1296,19 @@ pub fn writevAll(self: File, iovecs: []posix.iovec_const) WriteError!void {
+     // addresses outside the application's address space.
+     var garbage: [1]u8 = undefined;
+     for (iovecs) |*v| {
+-        if (v.iov_len == 0) v.iov_base = &garbage;
++        if (v.len == 0) v.base = &garbage;
+     }
+ 
+     var i: usize = 0;
+     while (true) {
+         var amt = try self.writev(iovecs[i..]);
+-        while (amt >= iovecs[i].iov_len) {
+-            amt -= iovecs[i].iov_len;
++        while (amt >= iovecs[i].len) {
++            amt -= iovecs[i].len;
+             i += 1;
+             if (i >= iovecs.len) return;
+         }
+-        iovecs[i].iov_base += amt;
+-        iovecs[i].iov_len -= amt;
++        iovecs[i].base += amt;
++        iovecs[i].len -= amt;
+     }
+ }
+ 
+@@ -1320,7 +1320,7 @@ pub fn pwritev(self: File, iovecs: []posix.iovec_const, offset: u64) PWriteError
+         // TODO improve this to use WriteFileScatter
+         if (iovecs.len == 0) return @as(usize, 0);
+         const first = iovecs[0];
+-        return windows.WriteFile(self.handle, first.iov_base[0..first.iov_len], offset);
++        return windows.WriteFile(self.handle, first.base[0..first.len], offset);
+     }
+ 
+     return posix.pwritev(self.handle, iovecs, offset);
+@@ -1339,13 +1339,13 @@ pub fn pwritevAll(self: File, iovecs: []posix.iovec_const, offset: u64) PWriteEr
+     while (true) {
+         var amt = try self.pwritev(iovecs[i..], offset + off);
+         off += amt;
+-        while (amt >= iovecs[i].iov_len) {
+-            amt -= iovecs[i].iov_len;
++        while (amt >= iovecs[i].len) {
++            amt -= iovecs[i].len;
+             i += 1;
+             if (i >= iovecs.len) return;
+         }
+-        iovecs[i].iov_base += amt;
+-        iovecs[i].iov_len -= amt;
++        iovecs[i].base += amt;
++        iovecs[i].len -= amt;
+     }
+ }
+ 
+@@ -1456,13 +1456,13 @@ fn writeFileAllSendfile(self: File, in_file: File, args: WriteFileOptions) posix
+         var i: usize = 0;
+         while (i < headers.len) {
+             amt = try posix.sendfile(out_fd, in_fd, offset, count, headers[i..], trls, flags);
+-            while (amt >= headers[i].iov_len) {
+-                amt -= headers[i].iov_len;
++            while (amt >= headers[i].len) {
++                amt -= headers[i].len;
+                 i += 1;
+                 if (i >= headers.len) break :hdrs;
+             }
+-            headers[i].iov_base += amt;
+-            headers[i].iov_len -= amt;
++            headers[i].base += amt;
++            headers[i].len -= amt;
+         }
+     }
+     if (count == 0) {
+@@ -1482,13 +1482,13 @@ fn writeFileAllSendfile(self: File, in_file: File, args: WriteFileOptions) posix
+     }
+     var i: usize = 0;
+     while (i < trailers.len) {
+-        while (amt >= trailers[i].iov_len) {
+-            amt -= trailers[i].iov_len;
++        while (amt >= trailers[i].len) {
++            amt -= trailers[i].len;
+             i += 1;
+             if (i >= trailers.len) return;
+         }
+-        trailers[i].iov_base += amt;
+-        trailers[i].iov_len -= amt;
++        trailers[i].base += amt;
++        trailers[i].len -= amt;
+         amt = try posix.writev(self.handle, trailers[i..]);
+     }
+ }
+diff --git a/test.zig b/test.zig
+index 488632b34..50dd8df65 100644
+--- a/test.zig
++++ b/test.zig
+@@ -1276,22 +1276,22 @@ test "writev, readv" {
+     var buf2: [line2.len]u8 = undefined;
+     var write_vecs = [_]posix.iovec_const{
+         .{
+-            .iov_base = line1,
+-            .iov_len = line1.len,
++            .base = line1,
++            .len = line1.len,
+         },
+         .{
+-            .iov_base = line2,
+-            .iov_len = line2.len,
++            .base = line2,
++            .len = line2.len,
+         },
+     };
+     var read_vecs = [_]posix.iovec{
+         .{
+-            .iov_base = &buf2,
+-            .iov_len = buf2.len,
++            .base = &buf2,
++            .len = buf2.len,
+         },
+         .{
+-            .iov_base = &buf1,
+-            .iov_len = buf1.len,
++            .base = &buf1,
++            .len = buf1.len,
+         },
+     };
+ 
+@@ -1318,22 +1318,22 @@ test "pwritev, preadv" {
+     var buf2: [line2.len]u8 = undefined;
+     var write_vecs = [_]posix.iovec_const{
+         .{
+-            .iov_base = line1,
+-            .iov_len = line1.len,
++            .base = line1,
++            .len = line1.len,
+         },
+         .{
+-            .iov_base = line2,
+-            .iov_len = line2.len,
++            .base = line2,
++            .len = line2.len,
+         },
+     };
+     var read_vecs = [_]posix.iovec{
+         .{
+-            .iov_base = &buf2,
+-            .iov_len = buf2.len,
++            .base = &buf2,
++            .len = buf2.len,
+         },
+         .{
+-            .iov_base = &buf1,
+-            .iov_len = buf1.len,
++            .base = &buf1,
++            .len = buf1.len,
+         },
+     };
+ 
+@@ -1378,12 +1378,12 @@ test "sendfile" {
+     const line2 = "second line\n";
+     var vecs = [_]posix.iovec_const{
+         .{
+-            .iov_base = line1,
+-            .iov_len = line1.len,
++            .base = line1,
++            .len = line1.len,
+         },
+         .{
+-            .iov_base = line2,
+-            .iov_len = line2.len,
++            .base = line2,
++            .len = line2.len,
+         },
+     };
+ 
+@@ -1401,20 +1401,20 @@ test "sendfile" {
+     const trailer2 = "second trailer\n";
+     var hdtr = [_]posix.iovec_const{
+         .{
+-            .iov_base = header1,
+-            .iov_len = header1.len,
++            .base = header1,
++            .len = header1.len,
+         },
+         .{
+-            .iov_base = header2,
+-            .iov_len = header2.len,
++            .base = header2,
++            .len = header2.len,
+         },
+         .{
+-            .iov_base = trailer1,
+-            .iov_len = trailer1.len,
++            .base = trailer1,
++            .len = trailer1.len,
+         },
+         .{
+-            .iov_base = trailer2,
+-            .iov_len = trailer2.len,
++            .base = trailer2,
++            .len = trailer2.len,
+         },
+     };
+ 
+-- 
+2.47.2
+

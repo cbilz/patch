@@ -1,0 +1,92 @@
+From 7789e87230778b93fb9a584722dcc6d8a5b2030f Mon Sep 17 00:00:00 2001
+From: Linus Groh <mail@linusgroh.de>
+Date: Sat, 20 Apr 2024 17:14:35 +0100
+Subject: [PATCH 03/14] std.fs.Dir.openDir: use wasi libc API when -lc
+
+Same as #19680 but for directories.
+---
+ lib/std/fs/Dir.zig | 45 +++++++++++++++++++++++++++------------------
+ 1 file changed, 27 insertions(+), 18 deletions(-)
+
+diff --git a/Dir.zig b/Dir.zig
+index 89b1d18b9..bd0a8fe4e 100644
+--- a/Dir.zig
++++ b/Dir.zig
+@@ -1401,7 +1401,7 @@ pub fn openDir(self: Dir, sub_path: []const u8, args: OpenDirOptions) OpenError!
+             const sub_path_w = try windows.sliceToPrefixedFileW(self.fd, sub_path);
+             return self.openDirW(sub_path_w.span().ptr, args);
+         },
+-        .wasi => {
++        .wasi => if (!builtin.link_libc) {
+             var base: std.os.wasi.rights_t = .{
+                 .FD_FILESTAT_GET = true,
+                 .FD_FDSTAT_SET_FLAGS = true,
+@@ -1446,11 +1446,10 @@ pub fn openDir(self: Dir, sub_path: []const u8, args: OpenDirOptions) OpenError!
+             };
+             return .{ .fd = fd };
+         },
+-        else => {
+-            const sub_path_c = try posix.toPosixPath(sub_path);
+-            return self.openDirZ(&sub_path_c, args);
+-        },
++        else => {},
+     }
++    const sub_path_c = try posix.toPosixPath(sub_path);
++    return self.openDirZ(&sub_path_c, args);
+ }
+ 
+ /// Same as `openDir` except the parameter is null-terminated.
+@@ -1460,7 +1459,9 @@ pub fn openDirZ(self: Dir, sub_path_c: [*:0]const u8, args: OpenDirOptions) Open
+             const sub_path_w = try windows.cStrToPrefixedFileW(self.fd, sub_path_c);
+             return self.openDirW(sub_path_w.span().ptr, args);
+         },
+-        .wasi => {
++        // Use the libc API when libc is linked because it implements things
++        // such as opening absolute directory paths.
++        .wasi => if (!builtin.link_libc) {
+             return openDir(self, mem.sliceTo(sub_path_c, 0), args);
+         },
+         .haiku => {
+@@ -1484,19 +1485,27 @@ pub fn openDirZ(self: Dir, sub_path_c: [*:0]const u8, args: OpenDirOptions) Open
+                 else => |err| return posix.unexpectedErrno(err),
+             }
+         },
+-        else => {
+-            var symlink_flags: posix.O = .{
+-                .ACCMODE = .RDONLY,
+-                .NOFOLLOW = args.no_follow,
+-                .DIRECTORY = true,
+-                .CLOEXEC = true,
+-            };
+-            if (@hasField(posix.O, "PATH") and !args.iterate)
+-                symlink_flags.PATH = true;
+-
+-            return self.openDirFlagsZ(sub_path_c, symlink_flags);
+-        },
++        else => {},
+     }
++
++    var symlink_flags: posix.O = switch (native_os) {
++        .wasi => .{
++            .read = true,
++            .NOFOLLOW = args.no_follow,
++            .DIRECTORY = true,
++        },
++        else => .{
++            .ACCMODE = .RDONLY,
++            .NOFOLLOW = args.no_follow,
++            .DIRECTORY = true,
++            .CLOEXEC = true,
++        },
++    };
++
++    if (@hasField(posix.O, "PATH") and !args.iterate)
++        symlink_flags.PATH = true;
++
++    return self.openDirFlagsZ(sub_path_c, symlink_flags);
+ }
+ 
+ /// Same as `openDir` except the path parameter is WTF-16 LE encoded, NT-prefixed.
+-- 
+2.47.2
+

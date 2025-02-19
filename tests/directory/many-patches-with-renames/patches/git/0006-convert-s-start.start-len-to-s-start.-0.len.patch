@@ -1,0 +1,25 @@
+From bd3360e03d89fe947e3728ccacd4274653926376 Mon Sep 17 00:00:00 2001
+From: dweiller <4678790+dweiller@users.noreplay.github.com>
+Date: Tue, 2 May 2023 22:08:54 +1000
+Subject: [PATCH 6/8] convert s[start..start+len] to s[start..][0..len]
+
+---
+ lib/std/Build/Cache/DepTokenizer.zig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Cache/DepTokenizer.zig b/Cache/DepTokenizer.zig
+index c640fa4ad..1a4e2ddb7 100644
+--- a/Cache/DepTokenizer.zig
++++ b/Cache/DepTokenizer.zig
+@@ -974,7 +974,7 @@ fn hexDump(out: anytype, bytes: []const u8) !void {
+     var line: usize = 0;
+     var offset: usize = 0;
+     while (line < n16) : (line += 1) {
+-        try hexDump16(out, offset, bytes[offset .. offset + 16]);
++        try hexDump16(out, offset, bytes[offset..][0..16]);
+         offset += 16;
+     }
+ 
+-- 
+2.47.2
+

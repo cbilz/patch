@@ -1,0 +1,28 @@
+From c7ffdbcd41f45d23328f1b40d90420ff29ed66af Mon Sep 17 00:00:00 2001
+From: Jacob Young <jacobly0@users.noreply.github.com>
+Date: Sat, 20 Apr 2024 06:08:26 -0400
+Subject: [PATCH 02/14] Revert "disable flaky std.fs test"
+
+This reverts commit d080622cc3f5db1ae3cd628c21c1ffaeb2b899d5.
+
+Workaround applied to CI.
+---
+ lib/std/fs/test.zig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/test.zig b/test.zig
+index b37ad9bc3..3aa932cf0 100644
+--- a/test.zig
++++ b/test.zig
+@@ -1712,7 +1712,7 @@ test "walker without fully iterating" {
+ test "'.' and '..' in fs.Dir functions" {
+     if (native_os == .wasi and builtin.link_libc) return error.SkipZigTest;
+ 
+-    if (native_os == .windows) {
++    if (native_os == .windows and builtin.cpu.arch == .aarch64) {
+         // https://github.com/ziglang/zig/issues/17134
+         return error.SkipZigTest;
+     }
+-- 
+2.47.2
+

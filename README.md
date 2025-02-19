@@ -4,8 +4,8 @@ Work in progress.
 
 ## Goal
 
-This project will provide a Zig build step for applying diffs in Git, unified
-and context formats to directory trees or individual files.
+This project will provide a Zig build step for applying diffs in Git and unified
+formats to directory trees or individual files.
 
 ## Motivation
 

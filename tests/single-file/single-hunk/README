@@ -1,0 +1,2 @@
+The file File.zig is part of fs/ in the Zig standard library. The patch contains
+the changes introduced by revision b32aa99b8704efd892567c8a716fb6c9f4e48a36.

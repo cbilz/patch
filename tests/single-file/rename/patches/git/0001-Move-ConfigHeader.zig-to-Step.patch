@@ -1,0 +1,17 @@
+From f6c89bfc4644af7ae2266bbc077a57bebd9de4df Mon Sep 17 00:00:00 2001
+From: User <user@email.com>
+Date: Wed, 19 Feb 2025 21:56:39 +0100
+Subject: [PATCH] Move ConfigHeader.zig to Step/
+
+---
+ ConfigHeader.zig => Step/ConfigHeader.zig | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+ rename ConfigHeader.zig => Step/ConfigHeader.zig (100%)
+
+diff --git a/ConfigHeader.zig b/Step/ConfigHeader.zig
+similarity index 100%
+rename from ConfigHeader.zig
+rename to Step/ConfigHeader.zig
+-- 
+2.47.2
+

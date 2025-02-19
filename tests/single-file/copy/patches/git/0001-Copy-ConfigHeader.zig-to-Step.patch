@@ -1,0 +1,17 @@
+From d345e918893c297876ea8a6d087a1550bcec6e5e Mon Sep 17 00:00:00 2001
+From: User <user@email.com>
+Date: Wed, 19 Feb 2025 21:57:26 +0100
+Subject: [PATCH] Copy ConfigHeader.zig to Step/
+
+---
+ ConfigHeader.zig => Step/ConfigHeader.zig | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+ copy ConfigHeader.zig => Step/ConfigHeader.zig (100%)
+
+diff --git a/ConfigHeader.zig b/Step/ConfigHeader.zig
+similarity index 100%
+copy from ConfigHeader.zig
+copy to Step/ConfigHeader.zig
+-- 
+2.47.2
+

@@ -147,7 +147,7 @@ fn make(step: *Build.Step, options: Build.Step.MakeOptions) !void {
             .bytes => |bytes| {
                 if (bytes.len > patch_dir_step.max_bytes_per_patch) {
                     return step.fail(
-                        "size of patch file exceeds specified limit of {d} bytes",
+                        "size of patch exceeds specified limit of {d} bytes",
                         .{patch_dir_step.max_bytes_per_patch},
                     );
                 }
@@ -163,7 +163,7 @@ fn make(step: *Build.Step, options: Build.Step.MakeOptions) !void {
 
     patcher.final() catch |err| {
         return step.fail(
-            "unable to finish patching directory: {s}\n{s}",
+            "unable to finalize patched directory: {s}\n{s}",
             .{ @errorName(err), patcher.getDiagnostic() },
         );
     };

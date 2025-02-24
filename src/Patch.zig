@@ -7,7 +7,7 @@ contents: union(enum) {
 },
 strip_dirs: StripDirs = .{ .count = 0 },
 
-const StripDirs = union(enum) {
+pub const StripDirs = union(enum) {
     /// A fixed number of leading components that will be stripped from paths in the patch.
     count: usize,
     /// Paths in the patch will be reduced to their last components, also known as basenames.

@@ -105,7 +105,7 @@ fn make(step: *Build.Step, options: Build.Step.MakeOptions) !void {
     };
     defer out_dir.close();
 
-    var patcher = DirPatcher.init(arena, files, src_dir, out_dir);
+    var patcher = try DirPatcher.create(arena, files, src_dir, out_dir);
     const patch_list = std.ArrayList(u8).init(arena);
 
     for (patch_dir_step.patches) |patch| {

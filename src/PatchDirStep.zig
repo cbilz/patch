@@ -138,9 +138,11 @@ fn make(step: *Build.Step, options: Build.Step.MakeOptions) !void {
                 };
 
                 patcher.apply(patch_list.items, patch.strip_dirs) catch |err| {
-                    return step.fail(
-                        "unable to apply patch file '{}': {s}\n{s}",
-                        .{ cache_path, @errorName(err), patcher.getDiagnostic() },
+                    return failWithDiagnostic(
+                        step,
+                        patcher,
+                        "unable to apply patch file '{}': {s}",
+                        .{ cache_path, @errorName(err) },
                     );
                 };
             },
@@ -152,9 +154,11 @@ fn make(step: *Build.Step, options: Build.Step.MakeOptions) !void {
                     );
                 }
                 patcher.apply(bytes, patch.strip_dirs) catch |err| {
-                    return step.fail(
-                        "unable to apply patch: {s}\n{s}",
-                        .{ @errorName(err), patcher.getDiagnostic() },
+                    return failWithDiagnostic(
+                        step,
+                        patcher,
+                        "unable to apply patch: {s}",
+                        .{@errorName(err)},
                     );
                 };
             },
@@ -162,14 +166,30 @@ fn make(step: *Build.Step, options: Build.Step.MakeOptions) !void {
     }
 
     patcher.final() catch |err| {
-        return step.fail(
-            "unable to finalize patched directory: {s}\n{s}",
-            .{ @errorName(err), patcher.getDiagnostic() },
+        return failWithDiagnostic(
+            step,
+            patcher,
+            "unable to finalize patched directory: {s}",
+            .{@errorName(err)},
         );
     };
 
     patch_dir_step.generated_directory.path = out_path;
     try step.writeManifest(&man);
+}
+
+fn failWithDiagnostic(
+    step: Build.Step,
+    patcher: DirPatcher,
+    comptime fmt: []const u8,
+    args: anytype,
+) !void {
+    if (patcher.diagnostic.items.len == 0) {
+        return step.fail(fmt, args);
+    } else {
+        const msg = try std.fmt.allocPrint(step.owner.allocator, fmt, args);
+        return step.fail("{s}\n{s}", .{ msg, patcher.diagnostic.items });
+    }
 }
 
 fn setWatchInputsAndCreateManifest(

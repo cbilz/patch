@@ -251,8 +251,9 @@ fn setWatchInputsAndCreateManifest(
             }
         };
         std.mem.sortUnstable([]const u8, files.items, Context{}, Context.lessThan);
-        for (files.items) |sub_path| {
-            const cache_path = try src_cache_path.join(arena, sub_path);
+        for (0..files.items.len) |n| {
+            assert(n == 0 or (Context{}).lessThan(files.items[n - 1], files.items[n]));
+            const cache_path = try src_cache_path.join(arena, files.items[n]);
             _ = try man.addFilePath(cache_path, null);
         }
     }

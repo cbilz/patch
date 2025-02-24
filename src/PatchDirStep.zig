@@ -82,7 +82,8 @@ fn make(step: *Build.Step, options: Build.Step.MakeOptions) !void {
     };
     defer src_dir.close();
 
-    const man = try setWatchInputsAndCreateManifest(patch_dir_step, src_cache_path, src_dir);
+    const man, const files =
+        try setWatchInputsAndCreateManifest(patch_dir_step, src_cache_path, src_dir);
     defer man.deinit();
 
     const hit = try step.cacheHit(&man);
@@ -104,7 +105,7 @@ fn make(step: *Build.Step, options: Build.Step.MakeOptions) !void {
     };
     defer out_dir.close();
 
-    var patcher = DirPatcher.init(arena, src_dir, out_dir);
+    var patcher = DirPatcher.init(arena, files, src_dir, out_dir);
     const patch_list = std.ArrayList(u8).init(arena);
 
     for (patch_dir_step.patches) |patch| {
@@ -175,7 +176,7 @@ fn setWatchInputsAndCreateManifest(
     patch_dir_step: *PatchDirStep,
     src_cache_path: Build.Cache.Path,
     src_dir: std.fs.Dir,
-) !Build.Cache.Manifest {
+) !struct { Build.Cache.Manifest, []const []const u8 } {
     const step = patch_dir_step.step;
     const b = step.owner;
     const arena = b.allocator;
@@ -187,7 +188,7 @@ fn setWatchInputsAndCreateManifest(
     // non-backwards-compatible way.
     man.hash.add(@as(u32, 0x990db558));
 
-    var files = std.StringArrayHashMapUnmanaged(void){};
+    var files = std.ArrayListUnmanaged([]const u8){};
 
     {
         const need_derived_inputs = try step.addDirectoryWatchInput(patch_dir_step.source);
@@ -202,13 +203,13 @@ fn setWatchInputsAndCreateManifest(
                     }
                 },
                 .file => {
-                    if (files.count() >= patch_dir_step.max_count_source_files) {
+                    if (files.items.len >= patch_dir_step.max_count_source_files) {
                         return step.fail(
                             "number of files in source directory exceeds specified limit of {d}",
                             .{patch_dir_step.max_count_source_files},
                         );
                     }
-                    try files.put(arena, b.dupe(entry.path), {});
+                    try files.append(arena, b.dupe(entry.path));
                 },
                 else => continue,
             }
@@ -219,21 +220,18 @@ fn setWatchInputsAndCreateManifest(
     // is subsequently traversed in a different order.
     {
         const Context = struct {
-            fs: std.StringArrayHashMapUnmanaged(void),
-
-            fn lessThan(self: @This(), lhs: usize, rhs: usize) bool {
-                const lhs_path = self.fs.keys[lhs];
-                const rhs_path = self.fs.keys[rhs];
-                const len = @min(lhs_path.len, rhs_path.len);
-                for (lhs_path[0..len], rhs_path[0..len]) |x, y| {
+            fn lessThan(self: @This(), lhs: []const u8, rhs: []const u8) bool {
+                _ = self;
+                const len = @min(lhs.len, rhs.len);
+                for (lhs[0..len], rhs[0..len]) |x, y| {
                     if (x < y) return true;
                     if (x > y) return false;
                 }
-                return lhs_path.len < rhs_path.len;
+                return lhs.len < rhs.len;
             }
         };
-        files.sortUnstable(Context{ .fs = files });
-        for (files.keys) |sub_path| {
+        std.mem.sortUnstable([]const u8, files.items, Context{}, Context.lessThan);
+        for (files.items) |sub_path| {
             const cache_path = try src_cache_path.join(arena, sub_path);
             _ = try man.addFilePath(cache_path, null);
         }
@@ -255,5 +253,5 @@ fn setWatchInputsAndCreateManifest(
         try step.addWatchInput(patch.file);
     }
 
-    return man;
+    return .{ man, files.items };
 }

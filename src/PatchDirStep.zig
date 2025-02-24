@@ -236,6 +236,9 @@ fn setWatchInputsAndCreateManifest(
         }
     }
 
+    man.hash.add(@as(u64, files.items.len));
+    man.hash.add(@as(u64, patch_dir_step.patches.len));
+
     // Add files to manifest after sorting, which avoids unnecessary rebuilds in case the directory
     // is subsequently traversed in a different order.
     {
@@ -264,11 +267,11 @@ fn setWatchInputsAndCreateManifest(
         switch (patch.strip_dirs) {
             .count => |c| {
                 man.hash.add(@as(u8, 0));
-                man.hash.add(@as(usize, c));
+                man.hash.add(@as(u64, c));
             },
             .all => {
                 man.hash.add(@as(u8, 1));
-                man.hash.add(@as(usize, 0));
+                man.hash.add(@as(u64, 0));
             },
         }
         try step.addWatchInput(patch.file);

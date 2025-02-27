@@ -221,8 +221,7 @@ fn failWithDiagnostic(
     if (diagnostic.len == 0) {
         return step.fail(fmt, args);
     } else {
-        const msg = try std.fmt.allocPrint(step.owner.allocator, fmt, args);
-        return step.fail("{s}\n{s}", .{ msg, diagnostic });
+        return step.fail(fmt ++ "\n{s}", args ++ .{diagnostic});
     }
 }
 

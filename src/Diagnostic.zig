@@ -1,10 +1,12 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-contents: std.ArrayListUnmanaged(u8) = .{},
-failed: bool = false,
+contents: std.ArrayListUnmanaged(u8),
+failed: bool,
 
 const Diagnostic = @This();
+
+const empty = Diagnostic{ .contents = .empty, .failed = false };
 
 pub fn deinit(d: *Diagnostic, allocator: Allocator) void {
     d.contents.deinit(allocator);

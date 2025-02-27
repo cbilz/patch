@@ -184,11 +184,12 @@ fn failWithDiagnostic(
     comptime fmt: []const u8,
     args: anytype,
 ) !void {
-    if (patcher.diagnostic.items.len == 0) {
+    const diagnostic = patcher.diagnostic.get();
+    if (diagnostic.len == 0) {
         return step.fail(fmt, args);
     } else {
         const msg = try std.fmt.allocPrint(step.owner.allocator, fmt, args);
-        return step.fail("{s}\n{s}", .{ msg, patcher.diagnostic.items });
+        return step.fail("{s}\n{s}", .{ msg, diagnostic });
     }
 }
 

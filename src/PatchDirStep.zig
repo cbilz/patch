@@ -266,13 +266,13 @@ fn setWatchInputsAndCreateManifest(
         const cache_path = patch.file.getPath3(b, step);
         _ = try man.addFilePath(cache_path, null);
         switch (patch.strip_dirs) {
+            .default => {
+                man.hash.add(@as(u8, 1));
+                man.hash.add(@as(u64, 0));
+            },
             .count => |c| {
                 man.hash.add(@as(u8, 0));
                 man.hash.add(@as(u64, c));
-            },
-            .all => {
-                man.hash.add(@as(u8, 1));
-                man.hash.add(@as(u64, 0));
             },
         }
         try step.addWatchInput(patch.file);

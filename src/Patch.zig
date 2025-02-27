@@ -5,13 +5,14 @@ contents: union(enum) {
     file: std.Build.LazyPath,
     bytes: []const u8,
 },
-strip_dirs: StripDirs = .{ .count = 0 },
+strip_dirs: StripDirs = .default,
 
 pub const StripDirs = union(enum) {
-    /// A fixed number of leading components that will be stripped from paths in the patch.
+    /// Strip one leading component from paths if the patch is in Git format and don't strip path
+    /// components if the patch is in unified format.
+    default,
+    /// The number of leading components that will be stripped from paths in the patch.
     count: usize,
-    /// Paths in the patch will be reduced to their last components, also known as basenames.
-    all,
 };
 
 pub fn dupe(patch: Patch, b: *std.Build) Patch {

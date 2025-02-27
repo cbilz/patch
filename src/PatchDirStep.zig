@@ -63,8 +63,16 @@ pub fn create(owner: *Build, options: Options) *PatchDirStep {
     return patch_dir_step;
 }
 
+const out_basename = "out";
+const tmp_basename = "tmp";
+
 pub fn getOutput(patch_dir_step: *PatchDirStep) Build.LazyPath {
-    return .{ .generated = .{ .file = &patch_dir_step.output_file } };
+    return .{
+        .generated = .{
+            .file = &patch_dir_step.generated_directory,
+            .sub_path = out_basename,
+        },
+    };
 }
 
 fn make(step: *Build.Step, options: Build.Step.MakeOptions) !void {
@@ -82,99 +90,124 @@ fn make(step: *Build.Step, options: Build.Step.MakeOptions) !void {
     };
     defer src_dir.close();
 
-    const man, const files =
+    const man, const src_files =
         try setWatchInputsAndCreateManifest(patch_dir_step, src_cache_path, src_dir);
     defer man.deinit();
 
     const hit = try step.cacheHit(&man);
-    const out_sub_path = b.pathJoin(&.{ "o", &man.final() });
-    const out_path = try b.cache_root.join(arena, &.{out_sub_path});
+    const gen_sub_path = b.pathJoin(&.{ "o", &man.final() });
+    const gen_path = try b.cache_root.join(arena, &.{gen_sub_path});
 
     if (hit) {
-        patch_dir_step.generated_directory.path = out_path;
+        patch_dir_step.generated_directory.path = gen_path;
         return;
     }
 
     // TODO: Who is supposed to take care of file cleanup in case a build step fails?
 
-    var out_dir = b.cache_root.handle.makeOpenPath(out_sub_path, .{}) catch |err| {
+    var out_dir = blk: {
+        const out_sub_path = b.pathJoin(&.{ gen_sub_path, out_basename });
+        break :blk b.cache_root.handle.makeOpenPath(out_sub_path, .{}) catch |err| {
+            return step.fail(
+                "unable to make path '{}{s}': {s}",
+                .{ b.cache_root, out_sub_path, @errorName(err) },
+            );
+        };
+    };
+
+    const tmp_sub_path = b.pathJoin(&.{ gen_sub_path, tmp_basename });
+    var tmp_dir = b.cache_root.handle.makeOpenPath(tmp_sub_path, .{}) catch |err| {
         return step.fail(
             "unable to make path '{}{s}': {s}",
-            .{ b.cache_root, out_sub_path, @errorName(err) },
+            .{ b.cache_root, tmp_sub_path, @errorName(err) },
         );
     };
-    defer out_dir.close();
 
-    var patcher = try DirPatcher.create(arena, files, src_dir, out_dir);
-    const patch_list = std.ArrayList(u8).init(arena);
+    {
+        defer out_dir.close();
+        defer tmp_dir.close();
 
-    for (patch_dir_step.patches) |patch| {
-        switch (patch.contents) {
-            .file => |lazy_path| {
-                const cache_path = lazy_path.getPath3(b, step);
+        var patcher = try DirPatcher.create(
+            arena,
+            .{ .src_files = src_files, .src = src_dir, .out = out_dir, .tmp = tmp_dir },
+        );
+        const patch_list = std.ArrayList(u8).init(arena);
 
-                const file = try cache_path.root_dir.handle.openFile(
-                    cache_path.sub_path,
-                    .{},
-                ) catch |err| return step.fail(
-                    "unable to open patch file '{}': {s}",
-                    .{ cache_path, @errorName(err) },
-                );
-                defer file.close();
+        for (patch_dir_step.patches) |patch| {
+            switch (patch.contents) {
+                .file => |lazy_path| {
+                    const cache_path = lazy_path.getPath3(b, step);
 
-                patch_list.clearRetainingCapacity();
-                file.reader().readAllArrayList(
-                    &patch_list,
-                    patch_dir_step.max_bytes_per_patch,
-                ) catch |err| switch (err) {
-                    error.StreamTooLong => return step.fail(
-                        "size of patch file '{}' exceeds specified limit of {d} bytes",
-                        .{ cache_path, patch_dir_step.max_bytes_per_patch },
-                    ),
-                    else => return step.fail(
-                        "unable to read patch file '{}': {s}",
-                        .{ cache_path, @errorName(err) },
-                    ),
-                };
-
-                patcher.apply(patch_list.items, patch.strip_dirs) catch |err| {
-                    return failWithDiagnostic(
-                        step,
-                        patcher,
-                        "unable to apply patch file '{}': {s}",
+                    const file = try cache_path.root_dir.handle.openFile(
+                        cache_path.sub_path,
+                        .{},
+                    ) catch |err| return step.fail(
+                        "unable to open patch file '{}': {s}",
                         .{ cache_path, @errorName(err) },
                     );
-                };
-            },
-            .bytes => |bytes| {
-                if (bytes.len > patch_dir_step.max_bytes_per_patch) {
-                    return step.fail(
-                        "size of patch exceeds specified limit of {d} bytes",
-                        .{patch_dir_step.max_bytes_per_patch},
-                    );
-                }
-                patcher.apply(bytes, patch.strip_dirs) catch |err| {
-                    return failWithDiagnostic(
-                        step,
-                        patcher,
-                        "unable to apply patch: {s}",
-                        .{@errorName(err)},
-                    );
-                };
-            },
+                    defer file.close();
+
+                    patch_list.clearRetainingCapacity();
+                    file.reader().readAllArrayList(
+                        &patch_list,
+                        patch_dir_step.max_bytes_per_patch,
+                    ) catch |err| switch (err) {
+                        error.StreamTooLong => return step.fail(
+                            "size of patch file '{}' exceeds specified limit of {d} bytes",
+                            .{ cache_path, patch_dir_step.max_bytes_per_patch },
+                        ),
+                        else => return step.fail(
+                            "unable to read patch file '{}': {s}",
+                            .{ cache_path, @errorName(err) },
+                        ),
+                    };
+
+                    patcher.apply(patch_list.items, patch.strip_dirs) catch |err| {
+                        return failWithDiagnostic(
+                            step,
+                            patcher,
+                            "unable to apply patch file '{}': {s}",
+                            .{ cache_path, @errorName(err) },
+                        );
+                    };
+                },
+                .bytes => |bytes| {
+                    if (bytes.len > patch_dir_step.max_bytes_per_patch) {
+                        return step.fail(
+                            "size of patch exceeds specified limit of {d} bytes",
+                            .{patch_dir_step.max_bytes_per_patch},
+                        );
+                    }
+                    patcher.apply(bytes, patch.strip_dirs) catch |err| {
+                        return failWithDiagnostic(
+                            step,
+                            patcher,
+                            "unable to apply patch: {s}",
+                            .{@errorName(err)},
+                        );
+                    };
+                },
+            }
         }
+
+        patcher.final() catch |err| {
+            return failWithDiagnostic(
+                step,
+                patcher,
+                "unable to finalize patched directory: {s}",
+                .{@errorName(err)},
+            );
+        };
     }
 
-    patcher.final() catch |err| {
-        return failWithDiagnostic(
-            step,
-            patcher,
-            "unable to finalize patched directory: {s}",
-            .{@errorName(err)},
+    b.cache_root.handle.deleteTree(tmp_sub_path) catch |err| {
+        return step.fail(
+            "failed to remove temporary directory tree '{}{s}': {s}",
+            .{ b.cache_root, tmp_sub_path, @errorName(err) },
         );
     };
 
-    patch_dir_step.generated_directory.path = out_path;
+    patch_dir_step.generated_directory.path = gen_path;
     try step.writeManifest(&man);
 }
 
@@ -209,7 +242,7 @@ fn setWatchInputsAndCreateManifest(
     // non-backwards-compatible way.
     man.hash.add(@as(u32, 0x990db558));
 
-    var files = std.ArrayListUnmanaged([]const u8){};
+    var src_files = std.ArrayListUnmanaged([]const u8){};
 
     {
         const need_derived_inputs = try step.addDirectoryWatchInput(patch_dir_step.source);
@@ -224,20 +257,20 @@ fn setWatchInputsAndCreateManifest(
                     }
                 },
                 .file => {
-                    if (files.items.len >= patch_dir_step.max_count_source_files) {
+                    if (src_files.items.len >= patch_dir_step.max_count_source_files) {
                         return step.fail(
                             "number of files in source directory exceeds specified limit of {d}",
                             .{patch_dir_step.max_count_source_files},
                         );
                     }
-                    try files.append(arena, b.dupe(entry.path));
+                    try src_files.append(arena, b.dupe(entry.path));
                 },
                 else => continue,
             }
         }
     }
 
-    man.hash.add(@as(u64, files.items.len));
+    man.hash.add(@as(u64, src_files.items.len));
     man.hash.add(@as(u64, patch_dir_step.patches.len));
 
     // Add files to manifest after sorting, which avoids unnecessary rebuilds in case the directory
@@ -254,10 +287,10 @@ fn setWatchInputsAndCreateManifest(
                 return lhs.len < rhs.len;
             }
         };
-        std.mem.sortUnstable([]const u8, files.items, Context{}, Context.lessThan);
-        for (0..files.items.len) |n| {
-            assert(n == 0 or (Context{}).lessThan(files.items[n - 1], files.items[n]));
-            const cache_path = try src_cache_path.join(arena, files.items[n]);
+        std.mem.sortUnstable([]const u8, src_files.items, Context{}, Context.lessThan);
+        for (0..src_files.items.len) |n| {
+            assert(n == 0 or (Context{}).lessThan(src_files.items[n - 1], src_files.items[n]));
+            const cache_path = try src_cache_path.join(arena, src_files.items[n]);
             _ = try man.addFilePath(cache_path, null);
         }
     }
@@ -278,5 +311,5 @@ fn setWatchInputsAndCreateManifest(
         try step.addWatchInput(patch.file);
     }
 
-    return .{ man, files.items };
+    return .{ man, src_files.items };
 }

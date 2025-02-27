@@ -31,16 +31,35 @@ pub fn print(d: *Diagnostic, allocator: Allocator, comptime fmt: []const u8, arg
     }
 }
 
-// Adapted from `std.testing.printLine`.
-pub fn appendLineWithVisibleNewline(d: *Diagnostic, allocator: Allocator, line: []const u8) void {
-    std.debug.assert(std.mem.indexOfScalar(u8, line, '\n') == null);
-    if (line.len != 0) {
-        switch (line[line.len - 1]) {
-            ' ', '\t' => {
-                return d.print(allocator, "{s}⏎\n", .{line}); // Return symbol
-            },
-            else => {},
+const AppendOptions = struct {
+    visible_newlines: bool = false,
+    visible_end_of_text: bool = false,
+};
+
+pub fn append(
+    d: *Diagnostic,
+    allocator: Allocator,
+    bytes: []const u8,
+    options: AppendOptions,
+) void {
+    // The implementation of this function was adapted from `std.testing.printWithVisibleNewlines`.
+    var i: usize = 0;
+    if (options.visible_newlines) {
+        while (std.mem.indexOfScalarPos(u8, bytes, i, '\n')) |nl| : (i = nl + 1) {
+            if (nl != i) {
+                switch (bytes[nl - 1]) {
+                    ' ', '\t' => {
+                        d.print(allocator, "{s}⏎\n", .{bytes[i..nl]}); // Return symbol
+                        continue;
+                    },
+                    else => {},
+                }
+            }
+            d.print(allocator, "{s}\n", .{bytes[i..nl]});
         }
     }
-    d.print(allocator, "{s}\n", .{line});
+    print("{s}{s}", .{
+        bytes[i..],
+        if (options.visible_end_of_text) "␃\n" else "", // End of Text symbol (ETX)
+    });
 }

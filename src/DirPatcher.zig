@@ -33,7 +33,7 @@ pub fn create(allocator: std.mem.Allocator, options: Options) !DirPatcher {
         .src = options.src,
         .out = options.out,
         .tmp = options.tmp,
-        .diagnostic = .empty,
+        .diagnostic = .init(allocator),
     };
 }
 
@@ -64,7 +64,6 @@ pub fn commit(dir_patcher: *DirPatcher) !void {
             };
             dir_patcher.diagnostic.clear();
             dir_patcher.diagnostic.print(
-                dir_patcher.allocator,
                 "failed to copy file '{s}' from {s} directory to output directory",
                 .{ path, dir_name },
             );

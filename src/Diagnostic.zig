@@ -2,32 +2,37 @@ const std = @import("std");
 const assert = std.debug.assert;
 const Allocator = std.mem.Allocator;
 
-contents: std.ArrayListUnmanaged(u8),
+contents: std.ArrayList(u8),
 failed: bool,
 
 const Diagnostic = @This();
 
-const empty = Diagnostic{ .contents = .empty, .failed = false };
-
-pub fn deinit(d: *Diagnostic, allocator: Allocator) void {
-    d.contents.deinit(allocator);
-    d.failed = undefined;
+pub fn init(allocator: Allocator) Diagnostic {
+    return .{ .contents = .init(allocator), .failed = false };
 }
 
-pub fn get(d: Diagnostic) []const u8 {
-    return if (d.failed) "(This diagnostic message could not be formatted.)" else d.contents.items;
+pub fn deinit(diagnostic: *Diagnostic) void {
+    diagnostic.contents.deinit();
+    diagnostic.* = undefined;
 }
 
-pub fn clear(d: *Diagnostic) void {
-    d.contents.clearRetainingCapacity();
-    d.failed = false;
+pub fn get(diagnostic: Diagnostic) []const u8 {
+    return if (diagnostic.failed)
+        "(This diagnostic message could not be formatted.)"
+    else
+        diagnostic.contents.items;
 }
 
-pub fn print(d: *Diagnostic, allocator: Allocator, comptime fmt: []const u8, args: anytype) void {
-    if (!d.failed) {
-        std.fmt.format(d.contents.writer(allocator), fmt, args) catch {
-            d.contents.clearRetainingCapacity();
-            d.failed = true;
+pub fn clear(diagnostic: *Diagnostic) void {
+    diagnostic.contents.clearRetainingCapacity();
+    diagnostic.failed = false;
+}
+
+pub fn print(diagnostic: *Diagnostic, comptime fmt: []const u8, args: anytype) void {
+    if (!diagnostic.failed) {
+        std.fmt.format(diagnostic.contents.writer(), fmt, args) catch {
+            diagnostic.contents.clearRetainingCapacity();
+            diagnostic.failed = true;
         };
     }
 }
@@ -38,8 +43,7 @@ const AppendOptions = struct {
 };
 
 pub fn append(
-    d: *Diagnostic,
-    allocator: Allocator,
+    diagnostic: *Diagnostic,
     bytes: []const u8,
     options: AppendOptions,
 ) void {
@@ -50,16 +54,16 @@ pub fn append(
             if (nl != i) {
                 switch (bytes[nl - 1]) {
                     ' ', '\t' => {
-                        d.print(allocator, "{s}⏎\n", .{bytes[i..nl]}); // Return symbol
+                        diagnostic.print("{s}⏎\n", .{bytes[i..nl]}); // Return symbol
                         continue;
                     },
                     else => {},
                 }
             }
-            d.print(allocator, "{s}\n", .{bytes[i..nl]});
+            diagnostic.print("{s}\n", .{bytes[i..nl]});
         }
     }
-    print("{s}{s}", .{
+    diagnostic.print("{s}{s}", .{
         bytes[i..],
         if (options.visible_end_of_text) "␃\n" else "", // End of Text symbol (ETX)
     });
@@ -68,28 +72,27 @@ pub fn append(
 /// Appends a diagnostic message comparing the `actual` string to one or more
 /// `expected_alternatives`. Asserts that `actual` differs from each of the alternatives.
 fn appendExpectedAndActualLines(
-    d: *Diagnostic,
-    allocator: Allocator,
+    diagnostic: *Diagnostic,
     expected_alternatives: []const []const u8,
     actual: []const u8,
 ) void {
     // The implementation of this function was adapted from `std.testing.expectEqualStrings`.
     assert(expected_alternatives.len != 0);
 
-    d.append(allocator, "============ found this: =============\n", .{});
-    d.append(allocator, actual, .{ .visible_newlines = true, .visible_end_of_text = true });
+    diagnostic.append("============ found this: =============\n", .{});
+    diagnostic.append(actual, .{ .visible_newlines = true, .visible_end_of_text = true });
 
     for (expected_alternatives, 0..) |expected, i| {
         if (i == 0) {
-            d.append(allocator, "========= but expected this: =========\n", .{});
+            diagnostic.append("========= but expected this: =========\n", .{});
         } else {
-            d.append(allocator, "\n============== or this: ==============\n", .{});
+            diagnostic.append("\n============== or this: ==============\n", .{});
         }
 
-        d.append(allocator, expected, .{ .visible_newlines = true, .visible_end_of_text = true });
+        diagnostic.append(expected, .{ .visible_newlines = true, .visible_end_of_text = true });
 
         {
-            d.append(allocator, "======================================\n", .{});
+            diagnostic.append("======================================\n", .{});
         }
 
         const shortest = @min(expected.len, actual.len);
@@ -106,6 +109,6 @@ fn appendExpectedAndActualLines(
             }
         } else assert(expected.len != actual.len);
 
-        d.print("First difference occurs on line {d}, column {d}.\n", .{ line, column });
+        diagnostic.print("First difference occurs on line {d}, column {d}.\n", .{ line, column });
     }
 }

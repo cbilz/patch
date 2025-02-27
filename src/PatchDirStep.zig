@@ -190,7 +190,7 @@ fn make(step: *Build.Step, options: Build.Step.MakeOptions) !void {
             }
         }
 
-        patcher.final() catch |err| {
+        patcher.commit() catch |err| {
             return failWithDiagnostic(
                 step,
                 patcher,

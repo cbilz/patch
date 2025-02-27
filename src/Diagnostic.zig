@@ -81,9 +81,9 @@ fn appendExpectedAndActualLines(
 
     for (expected_alternatives, 0..) |expected, i| {
         if (i == 0) {
-            d.append(allocator, "=========== expected this: ===========\n", .{});
+            d.append(allocator, "========= but expected this: =========\n", .{});
         } else {
-            d.append(allocator, "============== or this: ==============\n", .{});
+            d.append(allocator, "\n============== or this: ==============\n", .{});
         }
 
         d.append(allocator, expected, .{ .visible_newlines = true, .visible_end_of_text = true });
@@ -106,6 +106,6 @@ fn appendExpectedAndActualLines(
             }
         } else assert(expected.len != actual.len);
 
-        d.print("\nFirst difference occurs on line {d}, column {d}.\n\n", .{ line, column });
+        d.print("First difference occurs on line {d}, column {d}.\n", .{ line, column });
     }
 }

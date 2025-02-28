@@ -38,11 +38,67 @@ pub fn create(allocator: std.mem.Allocator, options: Options) !DirPatcher {
 }
 
 pub fn apply(dir_patcher: *DirPatcher, patch: []const u8, strip_dirs: StripDirs) !void {
-    _ = dir_patcher;
-    _ = patch;
-    _ = strip_dirs;
+    for (dir_patcher.files.values()) |*status| status.old = status.cur.?;
 
-    // TODO
+    var fbs = std.io.fixedBufferStream(patch);
+    var first_maybe: ?struct { header: Header, pos: usize } = null;
+
+    while (fbs.pos < patch.len) {
+        const pos_old = fbs.pos;
+        if (try Header.parse(&fbs, &dir_patcher.diagnostic)) |header| {
+            if (first_maybe) |first| blk: {
+                const unified = if (header == .unified)
+                    pos_old
+                else if (first.header == .unified)
+                    first.pos
+                else
+                    break :blk;
+
+                const git = if (header != .unified)
+                    pos_old
+                else if (first.header != .unified)
+                    first.pos
+                else
+                    break :blk;
+
+                dir_patcher.diagnostic.clear();
+                dir_patcher.diagnostic.print(
+                    "Found Git header on line {d} and non-Git header on line {d}.\n",
+                    .{
+                        std.mem.count(u8, patch[0..git], "\n") + 1,
+                        std.mem.count(u8, patch[0..unified], "\n") + 1,
+                    },
+                );
+                return error.InvalidPatch;
+            } else {
+                first_maybe = .{ .header = header, .pos = pos_old };
+            }
+            try applyInner(dir_patcher, &fbs, strip_dirs, header);
+        } else {
+            fbs.pos = if (std.mem.indexOfPos(u8, patch, fbs.pos, '\n')) |newline|
+                newline + 1
+            else
+                patch.len;
+        }
+    }
+
+    if (first_maybe == null) {
+        dir_patcher.diagnostic.clear();
+        dir_patcher.diagnostic.append("Patch does not touch any files.\n", .{});
+        return error.InvalidPatch;
+    }
+
+    // Clears old locations and removes deleted files from hash map.
+    var i: usize = 0;
+    while (i < dir_patcher.files.count()) {
+        const status = &dir_patcher.files.values()[i];
+        if (status.cur) |_| {
+            status.old = undefined;
+            i += 1;
+        } else {
+            dir_patcher.files.swapRemoveAt(i);
+        }
+    }
 }
 
 /// Moves output files in other directories to the output directory.
@@ -73,19 +129,34 @@ pub fn commit(dir_patcher: *DirPatcher) !void {
     }
 }
 
-/// Represents a valid (incomplete) Git patch header, with the following deliberate limitations,
-/// some of which mirror the behavior of `git apply`: Does not capture (dis)similarity indices. Does
-/// not capture blob hashes. Does not capture old modes, only new modes.
-const GitHeader = struct {
-    extended_action: ?enum { delete, create, copy, rename },
-    path_from: ?[]const u8,
-    path_to: ?[]const u8,
-    new_mode: ?enum { normal, executable },
+/// Represents a valid (incomplete) patch header in Git or unified format, with the following
+/// deliberate limitations, some of which mirror the behavior of `git apply`: Does not capture
+/// (dis)similarity indices. Does not capture blob hashes. Does not capture old modes, only new
+/// modes.
+const Header = union(enum) {
+    unified: Unified,
+    edit: Edit,
+    create: CreateDelete,
+    delete: CreateDelete,
+    copy: CopyMove,
+    move: CopyMove,
 
-    const empty = @This(){
-        .extended_action = null,
-        .patch_from = null,
-        .path_to = null,
-        .new_mode = null,
-    };
+    const Unified = struct { path: []const u8 };
+    const Edit = struct { path: []const u8, mode: ?Mode };
+    const CreateDelete = struct { path: []const u8, mode: Mode };
+    const CopyMove = struct { from: []const u8, to: []const u8, mode: ?Mode };
+
+    const Mode = enum { normal, executable };
+
+    fn parse(fbs: *std.io.FixedBufferStream([]const u8), diagnostic: *Diagnostic) !?Header {
+        _ = diagnostic;
+
+        if (std.mem.startsWith(u8, fbs.buffer[fbs.pos..], "diff --git ")) {
+            // TODO: Parse Git header
+        } else if (std.mem.startsWith(u8, "--- ")) {
+            // TODO: Parse unified header
+        } else {
+            return null;
+        }
+    }
 };

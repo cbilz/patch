@@ -1,10 +1,12 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
+const assert = std.debug.assert;
 const Diagnostic = @import("Diagnostic.zig");
 const StripDirs = @import("Patch.zig").StripDirs;
 
 const DirPatcher = @This();
 
-allocator: std.mem.Allocator,
+allocator: Allocator,
 files: std.StringArrayHashMapUnmanaged(Status),
 src: std.fs.Dir,
 out: std.fs.Dir,
@@ -21,7 +23,7 @@ pub const Options = struct {
     tmp: std.fs.Dir,
 };
 
-pub fn create(allocator: std.mem.Allocator, options: Options) !DirPatcher {
+pub fn create(allocator: Allocator, options: Options) !DirPatcher {
     var files = std.StringArrayHashMapUnmanaged(Status).empty;
     try files.ensureUnusedCapacity(allocator, options.src_files.len);
     for (options.src_files) |path| {
@@ -159,4 +161,150 @@ const Header = union(enum) {
             return null;
         }
     }
+
+    fn parsePath(
+        allocator: Allocator,
+        fbs: *std.io.FixedBufferStream([]const u8),
+        diagnostic: *Diagnostic,
+    ) ![]const u8 {
+        if (fbs.pos >= fbs.buffer.len) {
+            diagnostic.clear();
+            diagnostic.append("Expected path");
+        } else if (fbs.buffer[fbs.pos] == '"') {
+            // Parse a C-escaped path wrapped in double quotes. The following C escape sequences are
+            // not recognized as Git does not use them: \' \? \x... \u... \U...
+            fbs.pos += 1;
+            const list = std.ArrayListUnmanaged(u8).empty;
+            var end = fbs.buffer.len;
+            outer: while (fbs.pos < end) {
+                switch (fbs.buffer[fbs.pos]) {
+                    '"' => {
+                        fbs.pos += 1;
+                        return list.items;
+                    },
+                    '\\' => {
+                        if (fbs.pos + 1 >= fbs.buffer.len) {
+                            diagnostic.clear();
+                            diagnostic.append("Unescaped backslash", .{});
+                            break :outer;
+                        }
+                        switch (fbs.buffer[fbs.pos + 1]) {
+                            '"' => try list.append(allocator, '"'), // double quote
+                            '\\' => try list.append(allocator, '\\'), // backslash
+                            'n' => try list.append(allocator, '\n'), // line feed
+                            'r' => try list.append(allocator, '\r'), // carriage return
+                            't' => try list.append(allocator, '\t'), // tab
+                            'a' => try list.append(allocator, '\x07'), // bell
+                            'b' => try list.append(allocator, '\x08'), // backspace
+                            'v' => try list.append(allocator, '\x0b'), // vertical tab
+                            'f' => try list.append(allocator, '\x0c'), // form feed
+                            else => {
+                                // Octal value between 0 and 255, at most 3 octal digits.
+                                var byte: u8 = 0;
+                                var n: usize = 0;
+                                while (n < 3 and n < fbs.buffer.len - fbs.pos - 1) : (n += 1) {
+                                    switch (fbs.buffer[fbs.pos + n + 1]) {
+                                        '0'...'7' => |digit| {
+                                            if (byte >= 32) {
+                                                diagnostic.clear();
+                                                diagnostic.append("Octal value exceeds 255", .{});
+                                                break :outer;
+                                            }
+                                            byte *= 8;
+                                            byte += @as(u3, @intCast(digit - '0'));
+                                        },
+                                        else => break,
+                                    }
+                                }
+                                if (n == 0) {
+                                    diagnostic.clear();
+                                    diagnostic.append("Unrecognized escape sequence", .{});
+                                    break :outer;
+                                }
+                                fbs.pos += n - 1; // Note the additional increment a bit below.
+                                try list.append(allocator, byte);
+                            },
+                        }
+                        fbs.pos += 2;
+                    },
+                    '\n' => end = fbs.pos,
+                    else => |byte| {
+                        if (byte >= 0x20 and byte != 0x7f) {
+                            fbs.pos += 1;
+                            try list.append(allocator, byte);
+                        } else {
+                            diagnostic.clear();
+                            diagnostic.print("Unescaped control code \\{o}", .{byte});
+                            break :outer;
+                        }
+                    },
+                }
+            } else {
+                // Reached newline or end of buffer.
+                diagnostic.clear();
+                diagnostic.append("Expected closing double quote", .{});
+            }
+        } else {
+            // Parse a plain path, neither quote wrapped nor escaped.
+            var i: usize = fbs.pos;
+            var end: usize = fbs.buffer.len;
+            while (i < end) : (i += 1) {
+                switch (fbs.buffer[i]) {
+                    '\n' => end = i,
+                    '"' => {
+                        diagnostic.clear();
+                        diagnostic.append("Unescaped double quote", .{});
+                        break;
+                    },
+                    '\\' => {
+                        diagnostic.clear();
+                        diagnostic.append("Unescaped backslash", .{});
+                        break;
+                    },
+                    0...0x1f, 0x7f => |byte| {
+                        diagnostic.clear();
+                        diagnostic.append("Unescaped control code \\{o}", .{byte});
+                        break;
+                    },
+                    else => {},
+                }
+            } else return fbs.buffer[fbs.pos..end];
+        }
+        completeLineError(fbs, diagnostic);
+        return error.ParsePath;
+    }
 };
+
+fn completeLineError(
+    fbs: std.io.FixedBufferStream([]const u8),
+    diagnostic: *Diagnostic,
+) void {
+    if (!diagnostic.failed) {
+        const d = diagnostic.get();
+        assert(d.len != 0);
+        assert(!std.ascii.isWhitespace(d[d.len - 1]));
+    }
+
+    const coords = coordinates(fbs);
+    diagnostic.print(" on line {d}, column {d}:\n", .{ coords.line, coords.column });
+
+    const end = std.mem.indexOfScalarPos(u8, fbs.buffer, fbs.pos, '\n') orelse fbs.buffer.len;
+    diagnostic.append(fbs.buffer[fbs.pos..end], .{
+        .append_newline = true,
+        .visible_newlines = true,
+    });
+
+    for (1..coords.column) |_| diagnostic.append("-", .{});
+    diagnostic.append("^\n", .{});
+}
+
+fn coordinates(fbs: std.io.FixedBufferStream([]const u8)) struct { line: usize, column: usize } {
+    const column = if (std.mem.lastIndexOfScalar(u8, fbs.buffer[0..fbs.pos], '\n')) |newline|
+        fbs.pos - newline
+    else
+        fbs.pos + 1;
+    return .{
+        .line = std.mem.count(u8, fbs.buffer[0 .. fbs.pos - (column - 1)], "\n") + 1,
+        .column = column,
+    };
+}

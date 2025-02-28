@@ -38,6 +38,7 @@ pub fn print(diagnostic: *Diagnostic, comptime fmt: []const u8, args: anytype) v
 }
 
 const AppendOptions = struct {
+    append_newline: bool = false,
     visible_newlines: bool = false,
     visible_end_of_text: bool = false,
 };
@@ -50,17 +51,21 @@ pub fn append(
     // The implementation of this function was adapted from `std.testing.printWithVisibleNewlines`.
     var i: usize = 0;
     if (options.visible_newlines) {
-        while (std.mem.indexOfScalarPos(u8, bytes, i, '\n')) |nl| : (i = nl + 1) {
-            if (nl != i) {
-                switch (bytes[nl - 1]) {
-                    ' ', '\t' => {
-                        diagnostic.print("{s}⏎\n", .{bytes[i..nl]}); // Return symbol
-                        continue;
-                    },
-                    else => {},
-                }
+        while (i < bytes.len) {
+            const nl = if (std.mem.indexOfScalarPos(u8, bytes, i, '\n')) |index|
+                index
+            else if (options.append_newline)
+                bytes.len
+            else
+                break;
+
+            if (nl != i and (bytes[nl - 1] == ' ' or bytes[nl - 1] == '\t')) {
+                diagnostic.print("{s}⏎\n", .{bytes[i..nl]}); // Return symbol
+            } else {
+                diagnostic.print("{s}\n", .{bytes[i..nl]});
             }
-            diagnostic.print("{s}\n", .{bytes[i..nl]});
+
+            i = @min(bytes.len, nl +| 1);
         }
     }
     diagnostic.print("{s}{s}", .{

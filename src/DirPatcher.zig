@@ -13,30 +13,36 @@ out: std.fs.Dir,
 tmp: std.fs.Dir,
 diagnostic: Diagnostic,
 
-const Status = struct { cur: ?Location, old: Location };
+const Status = struct {
+    cur: ?Location,
+    old: Location,
+    const init = .{ .cur = .src, .old = undefined };
+};
 const Location = enum { src, out, tmp };
 
 pub const Options = struct {
-    src_files: []const []const u8,
     src: std.fs.Dir,
     out: std.fs.Dir,
     tmp: std.fs.Dir,
 };
 
-pub fn create(allocator: Allocator, options: Options) !DirPatcher {
-    var files = std.StringArrayHashMapUnmanaged(Status).empty;
-    try files.ensureUnusedCapacity(allocator, options.src_files.len);
-    for (options.src_files) |path| {
-        files.putAssumeCapacity(allocator, path, .{ .cur = .src, .old = undefined });
-    }
+pub fn create(allocator: Allocator, options: Options) DirPatcher {
     return .{
         .allocator = allocator,
-        .files = files,
+        .files = std.StringArrayHashMapUnmanaged(Status).empty,
         .src = options.src,
         .out = options.out,
         .tmp = options.tmp,
         .diagnostic = .init(allocator),
     };
+}
+
+pub fn countSourceFiles(dir_patcher: DirPatcher) usize {
+    return dir_patcher.files.count();
+}
+
+pub fn addSourceFile(dir_patcher: *DirPatcher, path: []const u8) !void {
+    try dir_patcher.files.put(dir_patcher.allocator, try dir_patcher.allocator.dupe(path), .init);
 }
 
 pub fn apply(dir_patcher: *DirPatcher, patch: []const u8, strip_dirs: StripDirs) !void {

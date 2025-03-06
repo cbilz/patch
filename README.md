@@ -38,13 +38,12 @@ compatibility are of concern.
 
 ## Next steps
 
-1. Refactor to use a run step instead of a custom build step.
-2. Complete implementation and review resource management:
+1. Complete implementation and review resource management:
     - Ensure a small number of file descriptors are open at any time.
     - Delete temporary directories on exit.
     - Clean up output directories in case of errors.
-3. Create a test build step.
-4. Add additional test cases to check the following behaviors:
+2. Create a test build step.
+3. Add additional test cases to check the following behaviors:
     - Correct handling of quote wrapped paths.
     - Correct handling of patches with junk text between a hunk and the next
       header.
@@ -54,12 +53,12 @@ compatibility are of concern.
     - Rejection of invalid headers.
     - Rejection of invalid hunks.
     - Rejection of multiple changes to the same file within a single Git patch.
-5. Fix bugs.
-6. Implement the remaining characteristics described in the
+4. Fix bugs.
+5. Implement the remaining characteristics described in the
    [Rationale](#Rationale).
-7. Update this README.
-8. Tag a release.
+6. Update this README.
+7. Tag a release.
 
 ## Requirements
 
-Uses Zig 0.14.0-dev.3046+08d661fcf.
+Uses Zig 0.14.0-dev.3462+edabcf619.
